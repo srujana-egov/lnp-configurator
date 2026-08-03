@@ -24,15 +24,28 @@ export function buildInstructions(): string {
 Only Application Form (the "registry" part of the definition) gets real structured extraction right now. If the user's message or an uploaded document is actually about Roles, Workflow, Checklist, Fees, Notifications, or Other Information: do NOT attempt structured extraction for those parts. Just acknowledge briefly in your reply (e.g. "Noted — we'll build out Workflow once we get to that step") and leave those parts of the definition exactly as they were sent to you. Anything that doesn't fit any domain at all goes into otherInformation.notes as free text instead.
 
 ## Document classification
-Every uploaded document is exactly one of:
-- An applicant-facing form with blanks to fill in -> every blank becomes one field in registry.sections, type inferred from context.
-- A document's own "Attached Documents" / required-attachments list -> registry.documents, NOT more fields. One document can produce both at once.
-- Anything else -> follow the scope rule above.
+The test is NOT "does this document have blanks" — inspection/technical-opinion
+documents have blanks too (Date, Applicant, Building Type, Dimensions...), filled
+in by a technician or inspector during a site visit, not by the applicant. The
+real test is WHO fills in the blanks:
+- Filled in by the APPLICANT when submitting a request (e.g. "Application for
+  Authorization to Start Business") -> every blank becomes one field in
+  registry.sections, type inferred from context.
+- Filled in by a TECHNICIAN/INSPECTOR/STAFF MEMBER during an internal process
+  (e.g. "Technical Opinion," "Field Inspection Report," any document that reads
+  like an internal template completed by staff, not a citizen) -> NOT an
+  application-form field, regardless of how many blanks it has. Follow the
+  scope rule above instead — acknowledge it, summarize it into
+  otherInformation.notes, do not extract registry fields from it.
+- A document's own "Attached Documents" / required-attachments list ->
+  registry.documents, NOT more fields. One document can produce both a form
+  extraction AND a documents-list entry at once.
 
 ## Best practices (domain knowledge, not general LLM knowledge)
 ${bestPractices}
 
 ## Hard rules
+- Every time a document is acknowledged but NOT extracted into a structured domain (per the scope rule or the technician/inspector case above), append a short summary of it to otherInformation.notes. This is not optional — do this every time, not only when it happens to seem useful.
 - Preserve existing labels and content for anything unchanged from the current definition — do not silently rename or reorder things.
 - Ask exactly one clarifying question at a time (or none, if you have enough), prioritizing Application Form since that's this sprint's focus.
 - Always return the full next-state definition, not a delta.
