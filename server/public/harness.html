@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>lnp-configurator harness</title>
+</head>
+<body>
+  <h1>AI Configurator — Sprint 1 harness</h1>
+  <p><em>Deliberately unstyled. Application Form only — Roles/Workflow/Fees/Notifications/Checklist get acknowledged, not extracted, this sprint.</em></p>
+
+  <button id="newSessionBtn">New Session</button>
+  <span id="sessionLabel"></span>
+
+  <div style="display: flex; gap: 24px; margin-top: 16px;">
+    <div style="flex: 1; min-width: 360px;">
+      <h2>Chat</h2>
+      <div id="chatLog" style="border: 1px solid #999; height: 400px; overflow-y: auto; padding: 8px;"></div>
+      <div id="chipRow" style="margin-top: 8px;"></div>
+      <form id="turnForm" style="margin-top: 8px;">
+        <textarea id="messageInput" rows="3" style="width: 100%;" placeholder="Type a message..."></textarea><br />
+        <input id="fileInput" type="file" multiple accept="application/pdf,image/png,image/jpeg" /><br />
+        <button type="submit" id="sendBtn">Send</button>
+      </form>
+      <pre id="statusArea" style="color: red;"></pre>
+    </div>
+
+    <div style="flex: 1; min-width: 360px;">
+      <h2>Application Form (registry)</h2>
+      <div id="registryPanel"></div>
+    </div>
+  </div>
+
+<script>
+let sessionId = null;
+
+const chatLog = document.getElementById('chatLog');
+const chipRow = document.getElementById('chipRow');
+const registryPanel = document.getElementById('registryPanel');
+const statusArea = document.getElementById('statusArea');
+const sessionLabel = document.getElementById('sessionLabel');
+
+function appendMessage(role, text) {
+  const div = document.createElement('div');
+  div.innerHTML = '<strong>' + role + ':</strong> ' + text.replace(/</g, '&lt;');
+  chatLog.appendChild(div);
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+function renderChips(suggestedReplies) {
+  chipRow.innerHTML = '';
+  (suggestedReplies || []).forEach((reply) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = reply;
+    btn.style.marginRight = '6px';
+    btn.onclick = () => sendTurn(reply, []);
+    chipRow.appendChild(btn);
+  });
+}
+
+function fieldInput(field) {
+  const notes = [];
+  if (field.validationNotes) notes.push(field.validationNotes);
+  if (field.optionsSource) notes.push('options from: ' + field.optionsSource);
+  if (field.source) notes.push('source: ' + field.source);
+
+  let inputHtml;
+  if (field.type === 'dropdown') {
+    const opts = (field.dropdownOptions || []).map((o) => '<option>' + o + '</option>').join('');
+    inputHtml = '<select>' + opts + '</select>';
+  } else if (field.type === 'textarea') {
+    inputHtml = '<textarea rows="2"></textarea>';
+  } else if (field.type === 'checkbox' || field.type === 'toggle') {
+    inputHtml = '<input type="checkbox" />';
+  } else if (field.type === 'file') {
+    inputHtml = '<input type="file" />';
+  } else {
+    const htmlType = { number: 'number', date: 'date', year: 'number', phone: 'tel', email: 'email' }[field.type] || 'text';
+    inputHtml = '<input type="' + htmlType + '" />';
+  }
+
+  return (
+    '<div style="margin-bottom: 8px;">' +
+    '<label><strong>' + field.label + '</strong>' + (field.required ? ' *' : '') +
+    ' <em style="color:#666;">[' + field.type + ', ' + field.fieldSource + ']</em></label><br/>' +
+    inputHtml +
+    (notes.length ? '<br/><small style="color:#666;">' + notes.join(' · ') + '</small>' : '') +
+    '</div>'
+  );
+}
+
+function renderRegistry(registry) {
+  let html = '';
+  for (const section of registry.sections) {
+    html += '<fieldset><legend>' + section.title + (section.system ? ' [system]' : '') + (section.conditional ? ' [conditional]' : '') + '</legend>';
+    for (const field of section.fields || []) html += fieldInput(field);
+    for (const sub of section.subsections || []) {
+      html += '<strong>' + sub.title + '</strong>';
+      for (const field of sub.fields) html += fieldInput(field);
+    }
+    html += '</fieldset>';
+  }
+  if (registry.documents.length > 0) {
+    html += '<fieldset><legend>Documents</legend><ul>';
+    for (const doc of registry.documents) {
+      html += '<li>' + doc.documentName + ' — ' + doc.acceptedFormats.join('/') + (doc.required ? ' (required)' : ' (optional)') +
+        (doc.docTypes.length ? ' — types: ' + doc.docTypes.join(', ') : '') + '</li>';
+    }
+    html += '</ul></fieldset>';
+  }
+  if (registry.featureToggles.length > 0) {
+    html += '<fieldset><legend>Feature toggles</legend>';
+    for (const toggle of registry.featureToggles) {
+      html += '<div><input type="checkbox" ' + (toggle.enabled ? 'checked' : '') + ' /> <strong>' + toggle.label + '</strong>' +
+        (toggle.tag ? ' [' + toggle.tag + ']' : '') + '<br/><small>' + toggle.description + '</small></div>';
+    }
+    html += '</fieldset>';
+  }
+  registryPanel.innerHTML = html || '<p><em>Nothing extracted yet.</em></p>';
+}
+
+async function newSession() {
+  const res = await fetch('/api/sessions', { method: 'POST' });
+  const session = await res.json();
+  sessionId = session.sessionId;
+  sessionLabel.textContent = ' session: ' + sessionId;
+  chatLog.innerHTML = '';
+  chipRow.innerHTML = '';
+  statusArea.textContent = '';
+  renderRegistry(session.definition.registry);
+}
+
+async function sendTurn(message, files) {
+  if (!sessionId) {
+    statusArea.textContent = 'Start a session first.';
+    return;
+  }
+  statusArea.textContent = '';
+  appendMessage('administrator', message || '(attached ' + files.length + ' file(s))');
+  chipRow.innerHTML = '';
+
+  const formData = new FormData();
+  formData.append('message', message);
+  for (const file of files) formData.append('files', file);
+
+  const res = await fetch('/api/sessions/' + sessionId + '/turns', { method: 'POST', body: formData });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    statusArea.textContent = 'Error ' + res.status + ': ' + (err.message || err.error);
+    return;
+  }
+  const result = await res.json();
+  appendMessage('ai', result.message.text);
+  renderChips(result.message.suggestedReplies);
+  renderRegistry(result.definition.registry);
+}
+
+document.getElementById('newSessionBtn').onclick = newSession;
+document.getElementById('turnForm').onsubmit = (e) => {
+  e.preventDefault();
+  const message = document.getElementById('messageInput').value.trim();
+  const files = Array.from(document.getElementById('fileInput').files);
+  document.getElementById('messageInput').value = '';
+  document.getElementById('fileInput').value = '';
+  sendTurn(message, files);
+};
+</script>
+</body>
+</html>
