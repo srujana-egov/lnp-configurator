@@ -17,15 +17,23 @@ export interface Metadata {
 // "Does this work for any possible form?" Compiling to a real digit3 schema is
 // Phase 2, out of scope here.
 
+// The 10 values below 'toggle' are exactly the real "Add Custom Field" type
+// dropdown, transcribed. 'toggle' is separate on purpose: it's a real type
+// (Owner/Proprietor Details' "Same as Applicant" toggles use it) but it's
+// never offered when creating a *custom* field — same rule as fieldSource
+// 'boundary': extraction must never emit type: 'toggle' for a new field,
+// only recognize one already present on a system-defined field.
 export type RegistryFieldType =
   | 'text'
+  | 'textarea'
+  | 'number'
+  | 'date'
+  | 'year'
+  | 'dropdown'
   | 'phone'
   | 'email'
-  | 'number'
-  | 'year'
-  | 'date'
-  | 'dropdown'
   | 'checkbox'
+  | 'file'
   | 'toggle'
 
 export type RegistryFieldSource = 'mandatory' | 'recommended' | 'custom' | 'boundary'
@@ -36,7 +44,14 @@ export interface RegistryField {
   type: RegistryFieldType
   required: boolean
   validationNotes?: string
+  // For type: 'dropdown' — mutually exclusive. dropdownOptions is a self-contained,
+  // hardcoded list (e.g. ID Type: Passport/Driving License/...). optionsSource is a
+  // reference to another domain's data instead (e.g. Category of Business, which the
+  // real screen literally labels "Values set in Overall Configuration") — a loose
+  // descriptive string for now since Overall Configuration has no type yet (deferred
+  // to Sprint 2); becomes a real typed reference once that domain exists.
   dropdownOptions?: string[]
+  optionsSource?: string
   source?: string
   // 'boundary' is never emitted by extraction — only ever recognized if already present.
   fieldSource: RegistryFieldSource
