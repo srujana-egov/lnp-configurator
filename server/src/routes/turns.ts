@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { getSession, saveSession } from '../store/sessionStore.js'
 import { upload } from '../middleware/upload.js'
 import { runTurn } from '../llm/extractTurn.js'
-import type { ConversationMessage } from '../types/session.js'
+import type { ConversationMessage, TurnResponse } from '../types/session.js'
 
 export const turnsRouter = Router()
 
@@ -59,7 +59,7 @@ turnsRouter.post('/:sessionId/turns', upload.array('files', 4), async (req, res,
     session.definition = result.definition
     saveSession(session)
 
-    res.json({
+    const response: TurnResponse = {
       message: aiMessage,
       definition: session.definition,
       // completeness/referenceChecks/highlightPaths/templateSuggestions are all
@@ -68,7 +68,8 @@ turnsRouter.post('/:sessionId/turns', upload.array('files', 4), async (req, res,
       referenceChecks: [],
       highlightPaths: [],
       templateSuggestions: [],
-    })
+    }
+    res.json(response)
   } catch (err) {
     next(err)
   }
