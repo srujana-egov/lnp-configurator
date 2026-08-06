@@ -137,25 +137,87 @@ function renderRegistry(registry) {
   return html || '<p><em>Nothing extracted yet.</em></p>';
 }
 
+// Left-to-right layer per state = BFS hop distance from Start (or the first
+// state, if none is literally named "Start"). Back-edges/self-loops are real
+// in workflow data (rejection cycles, retry loops) — rather than pretend a
+// left-to-right diagram is a clean DAG, they're drawn distinctly (a loop
+// icon or a "back" icon) instead of a normal forward arrow.
+function computeWorkflowLayers(states, transitions) {
+  const adjacency = {};
+  states.forEach((s) => { adjacency[s.label] = []; });
+  transitions.forEach((t) => {
+    if (adjacency[t.from]) adjacency[t.from].push(t.to);
+  });
+
+  const startState = states.find((s) => s.label === 'Start') || states[0];
+  const distance = {};
+  if (startState) {
+    distance[startState.label] = 0;
+    const queue = [startState.label];
+    while (queue.length > 0) {
+      const current = queue.shift();
+      for (const next of adjacency[current] || []) {
+        if (!(next in distance)) {
+          distance[next] = distance[current] + 1;
+          queue.push(next);
+        }
+      }
+    }
+  }
+  let maxDistance = 0;
+  states.forEach((s) => { if (s.label in distance) maxDistance = Math.max(maxDistance, distance[s.label]); });
+  states.forEach((s) => { if (!(s.label in distance)) { maxDistance += 1; distance[s.label] = maxDistance; } });
+  return distance;
+}
+
 function renderWorkflow(workflow) {
   let html = '';
   if (workflow.states.length > 0) {
-    html += '<fieldset><legend>States</legend><ul>';
-    for (const state of workflow.states) {
-      html += '<li>' + state.label + (state.assignedRole ? ' — role: ' + state.assignedRole : ' <em>(no role assigned)</em>') + '</li>';
+    const distance = computeWorkflowLayers(workflow.states, workflow.transitions);
+    const startLabel = (workflow.states.find((s) => s.label === 'Start') || workflow.states[0]).label;
+    const outgoing = {};
+    workflow.transitions.forEach((t) => { (outgoing[t.from] = outgoing[t.from] || []).push(t); });
+
+    const columns = {};
+    workflow.states.forEach((s) => {
+      const col = distance[s.label];
+      (columns[col] = columns[col] || []).push(s);
+    });
+    const colKeys = Object.keys(columns).map(Number).sort((a, b) => a - b);
+
+    html += '<div style="display:flex; gap:28px; overflow-x:auto; padding:12px 4px; border:1px solid #ccc;">';
+    for (const col of colKeys) {
+      html += '<div style="display:flex; flex-direction:column; gap:12px; min-width:190px;">';
+      for (const state of columns[col]) {
+        const stateOutgoing = outgoing[state.label] || [];
+        const isTerminal = stateOutgoing.length === 0;
+        const isStart = state.label === startLabel;
+        const borderColor = isStart ? '#3366cc' : (isTerminal ? '#2a9d5c' : '#333');
+        html += '<div style="border:2px solid ' + borderColor + '; border-radius:6px; padding:8px; background:#fafafa;">';
+        html += '<div style="font-weight:bold;">' + state.label +
+          (isStart ? ' <span style="color:#3366cc; font-weight:normal;">(start)</span>' : '') +
+          (isTerminal ? ' <span style="color:#2a9d5c; font-weight:normal;">(terminal)</span>' : '') + '</div>';
+        for (const t of stateOutgoing) {
+          const targetCol = distance[t.to];
+          const isSelfLoop = t.to === state.label;
+          const isBackEdge = !isSelfLoop && targetCol <= col;
+          const arrow = isSelfLoop ? '&#8635;' : (isBackEdge ? '&#8626;' : '&rarr;');
+          html += '<div style="font-size:12px; color:#555; margin-top:4px; border-top:1px dashed #ccc; padding-top:4px;">' +
+            arrow + ' <strong>' + t.to + '</strong>' +
+            (isBackEdge ? ' <em style="color:#a55;">(back)</em>' : '') + '<br/>' +
+            (t.role || t.action
+              ? '<em>' + [t.role, t.action].filter(Boolean).join(': ') + '</em>'
+              : '<em style="color:#999;">no role/action</em>') +
+            '</div>';
+        }
+        html += '</div>';
+      }
+      html += '</div>';
     }
-    html += '</ul></fieldset>';
-  }
-  if (workflow.transitions.length > 0) {
-    html += '<fieldset><legend>Transitions</legend><ul>';
-    for (const t of workflow.transitions) {
-      html += '<li>' + t.from + ' &rarr; ' + t.to +
-        (t.role ? ' [' + t.role + (t.action ? ': ' + t.action : '') + ']' : '') + '</li>';
-    }
-    html += '</ul></fieldset>';
+    html += '</div>';
   }
   if (workflow.slaDays != null) {
-    html += '<p><strong>SLA:</strong> ' + workflow.slaDays + ' days</p>';
+    html += '<p style="margin-top:12px;"><strong>SLA:</strong> ' + workflow.slaDays + ' days</p>';
   }
   return html || '<p><em>Nothing extracted yet.</em></p>';
 }
