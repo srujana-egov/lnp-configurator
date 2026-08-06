@@ -1,5 +1,5 @@
 import type { ErrorRequestHandler } from 'express'
-import { ExtractionError } from '../llm/extractTurn.js'
+import { ExtractionError } from '../llm/errors.js'
 
 export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   console.error(err)

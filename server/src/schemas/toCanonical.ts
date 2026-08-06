@@ -1,16 +1,31 @@
-import type { TurnResponseLlmOutput } from './turnResponseSchema.js'
+import { z } from 'zod'
+import {
+  MetadataSchema,
+  RegistrySchema,
+  WorkflowSchema,
+  ChecklistDefinitionSchema,
+  FeeConfigSchema,
+  NotificationsSchema,
+  OtherInformationSchema,
+} from './applicationDefinitionSchema.js'
 import type {
-  ApplicationDefinition,
+  Metadata,
   RegistryField,
   RegistrySection,
+  Registry,
+  Workflow,
   WorkflowState,
   ChecklistDefinition,
+  FeeConfig,
   FeeComponent,
   AdditionalFeeComponent,
+  Notifications,
   NotificationRule,
+  OtherInformation,
+  Roles,
 } from '../types/applicationDefinition.js'
 
-function freshId(): string {
+export function freshId(): string {
   return crypto.randomUUID()
 }
 
@@ -18,176 +33,206 @@ function undef<T>(value: T | null): T | undefined {
   return value === null ? undefined : value
 }
 
-/**
- * LLM output -> canonical ApplicationDefinition. Every field the model proposes
- * fresh is tagged 'custom' and given a new id here — the model is never trusted
- * with either. Items with a genuinely unknown required value (fee amount,
- * notification event/channel/recipient) are dropped rather than fabricated.
- */
-export function llmOutputToCanonical(llmOutput: TurnResponseLlmOutput['definition']): ApplicationDefinition {
-  const registryFields = (fields: typeof llmOutput.registry.sections[number]['fields']): RegistryField[] =>
-    (fields ?? []).map((f) => ({
-      id: freshId(),
-      label: f.label,
-      type: f.type,
-      required: f.required,
-      validationNotes: undef(f.validationNotes),
-      dropdownOptions: undef(f.dropdownOptions) ?? undefined,
-      optionsSource: undef(f.optionsSource),
-      fieldSource: 'custom',
-    }))
+// Per-domain LLM-facing shapes, inferred straight from the same schemas sent
+// to the model — one domain agent's output is exactly one of these, never
+// the whole ApplicationDefinition. Domain agents each return one of these.
+export type LlmMetadata = z.infer<typeof MetadataSchema>
+export type LlmRegistry = z.infer<typeof RegistrySchema>
+export type LlmWorkflow = z.infer<typeof WorkflowSchema>
+export type LlmChecklists = z.infer<typeof ChecklistDefinitionSchema>[]
+export type LlmFees = z.infer<typeof FeeConfigSchema>
+export type LlmNotifications = z.infer<typeof NotificationsSchema>
+export type LlmOtherInformation = z.infer<typeof OtherInformationSchema>
+export type LlmRoles = string[]
 
-  const sections: RegistrySection[] = llmOutput.registry.sections.map((s) => ({
+/**
+ * Per-domain LLM output -> canonical. Every field a domain agent proposes
+ * fresh is tagged 'custom' and given a new id here — the model is never
+ * trusted with either, same rule as before, just scoped per domain now.
+ * Items with a genuinely unknown required value (fee amount, notification
+ * event/channel/recipient) are dropped rather than fabricated.
+ */
+export function metadataFromLlm(llm: LlmMetadata): Metadata {
+  return {
+    name: undef(llm.name),
+    description: undef(llm.description),
+    department: undef(llm.department),
+    applicantType: undef(llm.applicantType),
+    version: undef(llm.version),
+  }
+}
+
+function registryFieldsFromLlm(fields: LlmRegistry['sections'][number]['fields']): RegistryField[] {
+  return (fields ?? []).map((f) => ({
+    id: freshId(),
+    label: f.label,
+    type: f.type,
+    required: f.required,
+    validationNotes: undef(f.validationNotes),
+    dropdownOptions: undef(f.dropdownOptions) ?? undefined,
+    optionsSource: undef(f.optionsSource),
+    fieldSource: 'custom',
+  }))
+}
+
+export function registryFromLlm(llm: LlmRegistry): Registry {
+  const sections: RegistrySection[] = llm.sections.map((s) => ({
     id: freshId(),
     title: s.title,
     conditional: undef(s.conditional),
-    fields: s.fields ? registryFields(s.fields) : undefined,
+    fields: s.fields ? registryFieldsFromLlm(s.fields) : undefined,
     subsections: s.subsections
-      ? s.subsections.map((sub) => ({ title: sub.title, fields: registryFields(sub.fields) }))
+      ? s.subsections.map((sub) => ({ title: sub.title, fields: registryFieldsFromLlm(sub.fields) }))
       : undefined,
   }))
+  return {
+    sections,
+    documents: llm.documents,
+    featureToggles: llm.featureToggles.map((t) => ({
+      id: freshId(),
+      label: t.label,
+      tag: undef(t.tag),
+      description: t.description,
+      enabled: t.enabled,
+    })),
+  }
+}
 
-  const states: WorkflowState[] = llmOutput.workflow.states.map((s) => ({
+export function workflowFromLlm(llm: LlmWorkflow): Workflow {
+  const states: WorkflowState[] = llm.states.map((s) => ({
     id: freshId(),
     label: s.label,
     assignedRole: undef(s.assignedRole),
   }))
+  return {
+    states,
+    transitions: llm.transitions,
+    slaDays: undef(llm.slaDays),
+    renewalTransitions: undef(llm.renewalTransitions),
+  }
+}
 
-  const checklists: ChecklistDefinition[] = llmOutput.checklists.map((c) => ({
+export function checklistsFromLlm(llm: LlmChecklists): ChecklistDefinition[] {
+  return llm.map((c) => ({
     id: freshId(),
     name: c.name,
     module: c.module,
     stage: c.stage,
     items: c.items,
   }))
+}
 
-  const feeComponents: FeeComponent[] = llmOutput.fees.feeComponents
+export function feesFromLlm(llm: LlmFees): FeeConfig {
+  const feeComponents: FeeComponent[] = llm.feeComponents
     .filter((c): c is { label: string; amount: number } => c.amount !== null)
     .map((c) => ({ label: c.label, amount: c.amount }))
-
-  const additionalComponents: AdditionalFeeComponent[] = llmOutput.fees.additionalComponents
+  const additionalComponents: AdditionalFeeComponent[] = llm.additionalComponents
     .filter((c): c is { name: string; type: 'flat' | 'percentage'; value: number } => c.value !== null)
     .map((c) => ({ name: c.name, type: c.type, value: c.value }))
+  return { mode: llm.mode, feeComponents, additionalComponents }
+}
 
-  const notificationRules: NotificationRule[] = llmOutput.notifications.rules
+export function notificationsFromLlm(llm: LlmNotifications): Notifications {
+  const rules: NotificationRule[] = llm.rules
     .filter(
       (r): r is { event: string; channel: string; recipient: string } =>
         r.event !== null && r.channel !== null && r.recipient !== null,
     )
     .map((r) => ({ id: freshId(), event: r.event, channel: r.channel, recipient: r.recipient }))
+  return { rules }
+}
 
+export function otherInformationFromLlm(llm: LlmOtherInformation): OtherInformation {
   return {
-    metadata: {
-      name: undef(llmOutput.metadata.name),
-      description: undef(llmOutput.metadata.description),
-      department: undef(llmOutput.metadata.department),
-      applicantType: undef(llmOutput.metadata.applicantType),
-      version: undef(llmOutput.metadata.version),
-    },
-    registry: {
-      sections,
-      documents: llmOutput.registry.documents,
-      featureToggles: llmOutput.registry.featureToggles.map((t) => ({
-        id: freshId(),
-        label: t.label,
-        tag: undef(t.tag),
-        description: t.description,
-        enabled: t.enabled,
-      })),
-    },
-    workflow: {
-      states,
-      transitions: llmOutput.workflow.transitions,
-      slaDays: undef(llmOutput.workflow.slaDays),
-      renewalTransitions: undef(llmOutput.workflow.renewalTransitions),
-    },
-    roles: llmOutput.roles,
-    checklists,
-    fees: {
-      mode: llmOutput.fees.mode,
-      feeComponents,
-      additionalComponents,
-    },
-    notifications: { rules: notificationRules },
-    otherInformation: {
-      notes: llmOutput.otherInformation.notes,
-      attachments: llmOutput.otherInformation.attachments.map((a) => ({
-        filename: a.filename,
-        description: undef(a.description),
-      })),
-    },
-    settings: llmOutput.settings,
+    notes: llm.notes,
+    attachments: llm.attachments.map((a) => ({ filename: a.filename, description: undef(a.description) })),
   }
 }
 
-/**
- * Canonical ApplicationDefinition -> the shape re-sent into the prompt each turn,
- * so the model always sees its own prior output in the shape it emits. Strips
- * ids and fieldSource/system (not the model's business), undefined -> null.
- */
-export function canonicalToLlmInput(def: ApplicationDefinition): TurnResponseLlmOutput['definition'] {
-  const registryFields = (fields: RegistryField[] | undefined) =>
-    (fields ?? []).map((f) => ({
-      label: f.label,
-      type: f.type,
-      required: f.required,
-      validationNotes: f.validationNotes ?? null,
-      dropdownOptions: f.dropdownOptions ?? null,
-      optionsSource: f.optionsSource ?? null,
-    }))
+export function rolesFromLlm(llm: LlmRoles): Roles {
+  return llm
+}
 
+/**
+ * Canonical -> the shape re-sent into a domain's prompt each turn, so the
+ * model always sees its own prior output in the shape it emits. Strips ids
+ * and fieldSource/system (not the model's business), undefined -> null.
+ */
+export function metadataToLlm(metadata: Metadata): LlmMetadata {
   return {
-    metadata: {
-      name: def.metadata.name ?? null,
-      description: def.metadata.description ?? null,
-      department: def.metadata.department ?? null,
-      applicantType: def.metadata.applicantType ?? null,
-      version: def.metadata.version ?? null,
-    },
-    registry: {
-      sections: def.registry.sections.map((s) => ({
-        title: s.title,
-        conditional: s.conditional ?? null,
-        fields: s.fields ? registryFields(s.fields) : null,
-        subsections: s.subsections
-          ? s.subsections.map((sub) => ({ title: sub.title, fields: registryFields(sub.fields) }))
-          : null,
-      })),
-      documents: def.registry.documents,
-      featureToggles: def.registry.featureToggles.map((t) => ({
-        label: t.label,
-        tag: t.tag ?? null,
-        description: t.description,
-        enabled: t.enabled,
-      })),
-    },
-    workflow: {
-      states: def.workflow.states.map((s) => ({ label: s.label, assignedRole: s.assignedRole ?? null })),
-      transitions: def.workflow.transitions,
-      slaDays: def.workflow.slaDays ?? null,
-      renewalTransitions: def.workflow.renewalTransitions ?? null,
-    },
-    roles: def.roles,
-    checklists: def.checklists.map((c) => ({ name: c.name, module: c.module, stage: c.stage, items: c.items })),
-    fees: {
-      mode: def.fees.mode,
-      feeComponents: def.fees.feeComponents.map((c) => ({ label: c.label, amount: c.amount })),
-      additionalComponents: def.fees.additionalComponents.map((c) => ({
-        name: c.name,
-        type: c.type,
-        value: c.value,
-      })),
-    },
-    notifications: {
-      rules: def.notifications.rules.map((r) => ({ event: r.event, channel: r.channel, recipient: r.recipient })),
-    },
-    otherInformation: {
-      notes: def.otherInformation.notes,
-      attachments: def.otherInformation.attachments.map((a) => ({
-        filename: a.filename,
-        description: a.description ?? null,
-      })),
-    },
-    settings: def.settings,
+    name: metadata.name ?? null,
+    description: metadata.description ?? null,
+    department: metadata.department ?? null,
+    applicantType: metadata.applicantType ?? null,
+    version: metadata.version ?? null,
   }
+}
+
+function registryFieldsToLlm(fields: RegistryField[] | undefined) {
+  return (fields ?? []).map((f) => ({
+    label: f.label,
+    type: f.type,
+    required: f.required,
+    validationNotes: f.validationNotes ?? null,
+    dropdownOptions: f.dropdownOptions ?? null,
+    optionsSource: f.optionsSource ?? null,
+  }))
+}
+
+export function registryToLlm(registry: Registry): LlmRegistry {
+  return {
+    sections: registry.sections.map((s) => ({
+      title: s.title,
+      conditional: s.conditional ?? null,
+      fields: s.fields ? registryFieldsToLlm(s.fields) : null,
+      subsections: s.subsections
+        ? s.subsections.map((sub) => ({ title: sub.title, fields: registryFieldsToLlm(sub.fields) }))
+        : null,
+    })),
+    documents: registry.documents,
+    featureToggles: registry.featureToggles.map((t) => ({
+      label: t.label,
+      tag: t.tag ?? null,
+      description: t.description,
+      enabled: t.enabled,
+    })),
+  }
+}
+
+export function workflowToLlm(workflow: Workflow): LlmWorkflow {
+  return {
+    states: workflow.states.map((s) => ({ label: s.label, assignedRole: s.assignedRole ?? null })),
+    transitions: workflow.transitions,
+    slaDays: workflow.slaDays ?? null,
+    renewalTransitions: workflow.renewalTransitions ?? null,
+  }
+}
+
+export function checklistsToLlm(checklists: ChecklistDefinition[]): LlmChecklists {
+  return checklists.map((c) => ({ name: c.name, module: c.module, stage: c.stage, items: c.items }))
+}
+
+export function feesToLlm(fees: FeeConfig): LlmFees {
+  return {
+    mode: fees.mode,
+    feeComponents: fees.feeComponents.map((c) => ({ label: c.label, amount: c.amount })),
+    additionalComponents: fees.additionalComponents.map((c) => ({ name: c.name, type: c.type, value: c.value })),
+  }
+}
+
+export function notificationsToLlm(notifications: Notifications): LlmNotifications {
+  return {
+    rules: notifications.rules.map((r) => ({ event: r.event, channel: r.channel, recipient: r.recipient })),
+  }
+}
+
+export function otherInformationToLlm(otherInformation: OtherInformation): LlmOtherInformation {
+  return {
+    notes: otherInformation.notes,
+    attachments: otherInformation.attachments.map((a) => ({ filename: a.filename, description: a.description ?? null })),
+  }
+}
+
+export function rolesToLlm(roles: Roles): LlmRoles {
+  return roles
 }

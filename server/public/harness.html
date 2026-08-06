@@ -5,10 +5,12 @@
 <title>lnp-configurator harness</title>
 </head>
 <body>
-  <h1>AI Configurator — Sprint 1 harness</h1>
-  <p><em>Deliberately unstyled. Application Form only — Roles/Workflow/Fees/Notifications/Checklist get acknowledged, not extracted, this sprint.</em></p>
+  <h1>AI Configurator — Sprint 2 harness</h1>
+  <p><em>Deliberately unstyled. All 7 domains now get real routing + extraction via the router + domain-specialist architecture.</em></p>
 
   <button id="newSessionBtn">New Session</button>
+  <select id="templateSelect"><option value="">— start from a template —</option></select>
+  <button id="startFromTemplateBtn">Start from Template</button>
   <span id="sessionLabel"></span>
 
   <div style="display: flex; gap: 24px; margin-top: 16px;">
@@ -21,23 +23,39 @@
         <input id="fileInput" type="file" multiple accept="application/pdf,image/png,image/jpeg" /><br />
         <button type="submit" id="sendBtn">Send</button>
       </form>
+      <button type="button" id="suggestTemplateBtn" style="margin-top: 8px;">Suggest a Template</button>
       <pre id="statusArea" style="color: red;"></pre>
     </div>
 
     <div style="flex: 1; min-width: 360px;">
-      <h2>Application Form (registry)</h2>
-      <div id="registryPanel"></div>
+      <h2>Application Definition</h2>
+      <div id="domainTabs" style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px;"></div>
+      <div id="domainPanel"></div>
     </div>
   </div>
 
 <script>
 let sessionId = null;
+let currentDefinition = null;
+let activeTab = 'registry';
+
+const TABS = [
+  { key: 'registry', label: 'Form' },
+  { key: 'workflow', label: 'Workflow' },
+  { key: 'roles', label: 'Roles' },
+  { key: 'checklists', label: 'Checklist' },
+  { key: 'fees', label: 'Fees' },
+  { key: 'notifications', label: 'Notifications' },
+  { key: 'otherInformation', label: 'Other Information' },
+];
 
 const chatLog = document.getElementById('chatLog');
 const chipRow = document.getElementById('chipRow');
-const registryPanel = document.getElementById('registryPanel');
+const domainTabs = document.getElementById('domainTabs');
+const domainPanel = document.getElementById('domainPanel');
 const statusArea = document.getElementById('statusArea');
 const sessionLabel = document.getElementById('sessionLabel');
+const templateSelect = document.getElementById('templateSelect');
 
 function appendMessage(role, text) {
   const div = document.createElement('div');
@@ -116,18 +134,145 @@ function renderRegistry(registry) {
     }
     html += '</fieldset>';
   }
-  registryPanel.innerHTML = html || '<p><em>Nothing extracted yet.</em></p>';
+  return html || '<p><em>Nothing extracted yet.</em></p>';
 }
 
-async function newSession() {
-  const res = await fetch('/api/sessions', { method: 'POST' });
+function renderWorkflow(workflow) {
+  let html = '';
+  if (workflow.states.length > 0) {
+    html += '<fieldset><legend>States</legend><ul>';
+    for (const state of workflow.states) {
+      html += '<li>' + state.label + (state.assignedRole ? ' — role: ' + state.assignedRole : ' <em>(no role assigned)</em>') + '</li>';
+    }
+    html += '</ul></fieldset>';
+  }
+  if (workflow.transitions.length > 0) {
+    html += '<fieldset><legend>Transitions</legend><ul>';
+    for (const t of workflow.transitions) html += '<li>' + t.from + ' &rarr; ' + t.to + '</li>';
+    html += '</ul></fieldset>';
+  }
+  if (workflow.slaDays != null) {
+    html += '<p><strong>SLA:</strong> ' + workflow.slaDays + ' days</p>';
+  }
+  return html || '<p><em>Nothing extracted yet.</em></p>';
+}
+
+function renderRoles(roles) {
+  if (roles.length === 0) return '<p><em>Nothing extracted yet.</em></p>';
+  return '<ul>' + roles.map((r) => '<li>' + r + '</li>').join('') + '</ul>';
+}
+
+function renderChecklists(checklists) {
+  if (checklists.length === 0) return '<p><em>Nothing extracted yet — real tenants often leave this empty.</em></p>';
+  let html = '';
+  for (const c of checklists) {
+    html += '<fieldset><legend>' + c.name + ' [' + c.module + ', stage: ' + c.stage + ']</legend><ul>';
+    for (const item of c.items) {
+      html += '<li>' + item.item + ' (' + item.type + ')' + (item.required ? ' *' : '') + '</li>';
+    }
+    html += '</ul></fieldset>';
+  }
+  return html;
+}
+
+function renderFees(fees) {
+  if (fees.feeComponents.length === 0 && fees.additionalComponents.length === 0) {
+    return '<p><em>Nothing extracted yet.</em></p>';
+  }
+  let html = '<p><strong>Mode:</strong> ' + fees.mode + '</p><ul>';
+  let total = 0;
+  for (const c of fees.feeComponents) {
+    html += '<li>' + c.label + ': ' + c.amount + '</li>';
+    total += c.amount;
+  }
+  html += '</ul><p><strong>Subtotal: ' + total + '</strong></p>';
+  if (fees.additionalComponents.length > 0) {
+    html += '<ul>';
+    for (const c of fees.additionalComponents) {
+      html += '<li>' + c.name + ': ' + c.value + (c.type === 'percentage' ? '%' : '') + '</li>';
+    }
+    html += '</ul>';
+  }
+  return html;
+}
+
+function renderNotifications(notifications) {
+  if (notifications.rules.length === 0) return '<p><em>Nothing extracted yet.</em></p>';
+  return '<ul>' + notifications.rules.map((r) =>
+    '<li>' + r.event + ' &rarr; ' + r.channel + ' &rarr; ' + r.recipient + '</li>'
+  ).join('') + '</ul>';
+}
+
+function renderOtherInformation(otherInformation) {
+  let html = '';
+  if (otherInformation.notes) {
+    html += '<p>' + otherInformation.notes.replace(/</g, '&lt;').replace(/\n/g, '<br/>') + '</p>';
+  }
+  if (otherInformation.attachments.length > 0) {
+    html += '<ul>' + otherInformation.attachments.map((a) =>
+      '<li>' + a.filename + (a.description ? ' — ' + a.description : '') + '</li>'
+    ).join('') + '</ul>';
+  }
+  return html || '<p><em>Nothing here yet.</em></p>';
+}
+
+const DOMAIN_RENDERERS = {
+  registry: renderRegistry,
+  workflow: renderWorkflow,
+  roles: renderRoles,
+  checklists: renderChecklists,
+  fees: renderFees,
+  notifications: renderNotifications,
+  otherInformation: renderOtherInformation,
+};
+
+function renderTabs() {
+  domainTabs.innerHTML = '';
+  for (const tab of TABS) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = tab.label;
+    btn.style.fontWeight = tab.key === activeTab ? 'bold' : 'normal';
+    btn.onclick = () => { activeTab = tab.key; renderTabs(); renderActivePanel(); };
+    domainTabs.appendChild(btn);
+  }
+}
+
+function renderActivePanel() {
+  if (!currentDefinition) {
+    domainPanel.innerHTML = '<p><em>Start a session first.</em></p>';
+    return;
+  }
+  const renderer = DOMAIN_RENDERERS[activeTab];
+  domainPanel.innerHTML = renderer(currentDefinition[activeTab]);
+}
+
+function renderDefinition(definition) {
+  currentDefinition = definition;
+  renderActivePanel();
+}
+
+async function loadTemplateOptions() {
+  // No list endpoint yet (one seed template only, per Sprint 2 scope) — hardcode
+  // the one real id rather than build a route for a single static option.
+  templateSelect.innerHTML = '<option value="">— start from a template —</option>' +
+    '<option value="business-license-starter">Business License</option>';
+}
+
+async function newSession(templateId) {
+  const res = await fetch('/api/sessions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(templateId ? { templateId } : {}),
+  });
   const session = await res.json();
   sessionId = session.sessionId;
   sessionLabel.textContent = ' session: ' + sessionId;
   chatLog.innerHTML = '';
   chipRow.innerHTML = '';
   statusArea.textContent = '';
-  renderRegistry(session.definition.registry);
+  renderTabs();
+  renderDefinition(session.definition);
 }
 
 async function sendTurn(message, files) {
@@ -152,10 +297,31 @@ async function sendTurn(message, files) {
   const result = await res.json();
   appendMessage('ai', result.message.text);
   renderChips(result.message.suggestedReplies);
-  renderRegistry(result.definition.registry);
+  renderDefinition(result.definition);
 }
 
-document.getElementById('newSessionBtn').onclick = newSession;
+async function suggestTemplate() {
+  if (!sessionId) {
+    statusArea.textContent = 'Start a session first.';
+    return;
+  }
+  const res = await fetch('/api/sessions/' + sessionId + '/suggest-template', { method: 'POST' });
+  const { suggestion } = await res.json();
+  statusArea.style.color = '#333';
+  statusArea.textContent = suggestion
+    ? 'Suggested template: ' + suggestion.name + ' (' + suggestion.description + ', similarity ' + suggestion.similarity + ' — stubbed matching, Sprint 5 builds the real thing)'
+    : 'No template suggestion available.';
+}
+
+document.getElementById('newSessionBtn').onclick = () => newSession(undefined);
+document.getElementById('startFromTemplateBtn').onclick = () => {
+  if (!templateSelect.value) {
+    statusArea.textContent = 'Pick a template first.';
+    return;
+  }
+  newSession(templateSelect.value);
+};
+document.getElementById('suggestTemplateBtn').onclick = suggestTemplate;
 document.getElementById('turnForm').onsubmit = (e) => {
   e.preventDefault();
   const message = document.getElementById('messageInput').value.trim();
@@ -164,6 +330,9 @@ document.getElementById('turnForm').onsubmit = (e) => {
   document.getElementById('fileInput').value = '';
   sendTurn(message, files);
 };
+
+loadTemplateOptions();
+renderTabs();
 </script>
 </body>
 </html>
