@@ -103,6 +103,14 @@ export interface WorkflowState {
 export interface WorkflowTransition {
   from: string
   to: string
+  // Real product data (the real Bissau tenant's Workflow screen) showed role
+  // and action assigned per-transition, not per-state — the same "from"
+  // state can have multiple rows with different roles/actions (e.g. Start
+  // has both a Citizen/Apply row and a Counter Employee/Assisted Apply
+  // row). WorkflowState.assignedRole predates this finding and is now the
+  // less accurate of the two; kept for now, not removed.
+  role?: string
+  action?: string
 }
 
 export interface Workflow {
@@ -162,6 +170,11 @@ export interface NotificationRule {
   event: string
   channel: string
   recipient: string
+  // Real product data (Bissau tenant's Notifications screen) shows real
+  // message/subject text per rule, including {APP_ID}-style placeholders —
+  // missing from this type until now, same class of gap as
+  // WorkflowTransition's role/action.
+  message?: string
 }
 
 export interface Notifications {

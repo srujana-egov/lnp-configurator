@@ -106,9 +106,16 @@ export function workflowFromLlm(llm: LlmWorkflow): Workflow {
   }))
   return {
     states,
-    transitions: llm.transitions,
+    transitions: llm.transitions.map((t) => ({
+      from: t.from,
+      to: t.to,
+      role: undef(t.role),
+      action: undef(t.action),
+    })),
     slaDays: undef(llm.slaDays),
-    renewalTransitions: undef(llm.renewalTransitions),
+    renewalTransitions: llm.renewalTransitions
+      ? llm.renewalTransitions.map((t) => ({ from: t.from, to: t.to, role: undef(t.role), action: undef(t.action) }))
+      : undefined,
   }
 }
 
@@ -135,10 +142,10 @@ export function feesFromLlm(llm: LlmFees): FeeConfig {
 export function notificationsFromLlm(llm: LlmNotifications): Notifications {
   const rules: NotificationRule[] = llm.rules
     .filter(
-      (r): r is { event: string; channel: string; recipient: string } =>
+      (r): r is { event: string; channel: string; recipient: string; message: string | null } =>
         r.event !== null && r.channel !== null && r.recipient !== null,
     )
-    .map((r) => ({ id: freshId(), event: r.event, channel: r.channel, recipient: r.recipient }))
+    .map((r) => ({ id: freshId(), event: r.event, channel: r.channel, recipient: r.recipient, message: undef(r.message) }))
   return { rules }
 }
 
@@ -200,11 +207,13 @@ export function registryToLlm(registry: Registry): LlmRegistry {
 }
 
 export function workflowToLlm(workflow: Workflow): LlmWorkflow {
+  const transitionsToLlm = (transitions: typeof workflow.transitions) =>
+    transitions.map((t) => ({ from: t.from, to: t.to, role: t.role ?? null, action: t.action ?? null }))
   return {
     states: workflow.states.map((s) => ({ label: s.label, assignedRole: s.assignedRole ?? null })),
-    transitions: workflow.transitions,
+    transitions: transitionsToLlm(workflow.transitions),
     slaDays: workflow.slaDays ?? null,
-    renewalTransitions: workflow.renewalTransitions ?? null,
+    renewalTransitions: workflow.renewalTransitions ? transitionsToLlm(workflow.renewalTransitions) : null,
   }
 }
 
@@ -222,7 +231,12 @@ export function feesToLlm(fees: FeeConfig): LlmFees {
 
 export function notificationsToLlm(notifications: Notifications): LlmNotifications {
   return {
-    rules: notifications.rules.map((r) => ({ event: r.event, channel: r.channel, recipient: r.recipient })),
+    rules: notifications.rules.map((r) => ({
+      event: r.event,
+      channel: r.channel,
+      recipient: r.recipient,
+      message: r.message ?? null,
+    })),
   }
 }
 

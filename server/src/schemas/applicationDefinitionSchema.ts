@@ -85,6 +85,8 @@ export const WorkflowStateSchema = z.object({
 export const WorkflowTransitionSchema = z.object({
   from: z.string(),
   to: z.string(),
+  role: z.string().nullable(),
+  action: z.string().nullable(),
 })
 
 export const WorkflowSchema = z.object({
@@ -136,6 +138,7 @@ export const NotificationRuleSchema = z.object({
   event: z.string().nullable(),
   channel: z.string().nullable(),
   recipient: z.string().nullable(),
+  message: z.string().nullable(),
 })
 
 export const NotificationsSchema = z.object({

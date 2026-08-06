@@ -8,20 +8,28 @@ const MANDATORY_APPLICANT_DETAILS_TITLE = 'Applicant Details'
 // fields need to be deterministic, not something a prompt merely tends to
 // respect. See mergeDomainResults.ts for the other enforcement point.
 //
-// OPEN ITEM: the field list below is a placeholder built from what's been
-// confirmed verbally so far (Name, Address, Mobile Number, Email) — not yet
-// verified against the real Application Form screen's actual
-// Mandatory-tagged fields. Confirm and correct before the next demo.
+// Verified directly against the real Application Form screen (Camara
+// Municipal de Bissau tenant) — no longer a placeholder. Note Email Address
+// is genuinely Optional on the real screen, not Required — resist the urge
+// to "fix" that; it's what the real product actually does.
 function buildMandatoryApplicantDetailsSection(): RegistrySection {
   return {
     id: freshId(),
     title: MANDATORY_APPLICANT_DETAILS_TITLE,
     system: true,
     fields: [
-      { id: freshId(), label: 'Applicant Name', type: 'text', required: true, fieldSource: 'mandatory' },
-      { id: freshId(), label: 'Address', type: 'text', required: true, fieldSource: 'mandatory' },
-      { id: freshId(), label: 'Mobile Number', type: 'phone', required: true, fieldSource: 'mandatory' },
-      { id: freshId(), label: 'Email', type: 'email', required: true, fieldSource: 'mandatory' },
+      { id: freshId(), label: 'Full Name', type: 'text', required: true, validationNotes: 'Min 3 characters', fieldSource: 'mandatory' },
+      { id: freshId(), label: 'Mobile Number', type: 'phone', required: true, validationNotes: '10-digit number', fieldSource: 'mandatory' },
+      { id: freshId(), label: 'Email Address', type: 'email', required: false, fieldSource: 'mandatory' },
+      {
+        id: freshId(),
+        label: 'ID Type',
+        type: 'dropdown',
+        required: true,
+        dropdownOptions: ['Passport', 'Driving License', 'ID Card', 'Foreigner ID', 'Residence ID'],
+        fieldSource: 'mandatory',
+      },
+      { id: freshId(), label: 'ID Number', type: 'text', required: true, fieldSource: 'mandatory' },
     ],
   }
 }

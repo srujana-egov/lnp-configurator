@@ -148,7 +148,10 @@ function renderWorkflow(workflow) {
   }
   if (workflow.transitions.length > 0) {
     html += '<fieldset><legend>Transitions</legend><ul>';
-    for (const t of workflow.transitions) html += '<li>' + t.from + ' &rarr; ' + t.to + '</li>';
+    for (const t of workflow.transitions) {
+      html += '<li>' + t.from + ' &rarr; ' + t.to +
+        (t.role ? ' [' + t.role + (t.action ? ': ' + t.action : '') + ']' : '') + '</li>';
+    }
     html += '</ul></fieldset>';
   }
   if (workflow.slaDays != null) {
@@ -199,7 +202,8 @@ function renderFees(fees) {
 function renderNotifications(notifications) {
   if (notifications.rules.length === 0) return '<p><em>Nothing extracted yet.</em></p>';
   return '<ul>' + notifications.rules.map((r) =>
-    '<li>' + r.event + ' &rarr; ' + r.channel + ' &rarr; ' + r.recipient + '</li>'
+    '<li>' + r.event + ' &rarr; ' + r.channel + ' &rarr; ' + r.recipient +
+    (r.message ? '<br/><small style="color:#666;">' + r.message.replace(/</g, '&lt;') + '</small>' : '') + '</li>'
   ).join('') + '</ul>';
 }
 
