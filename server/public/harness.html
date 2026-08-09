@@ -712,25 +712,70 @@ function renderEmailPreview(r) {
     '</div></div>';
 }
 
-// Shows what the actual configured message would look like per channel —
-// an SMS/WhatsApp bubble, an email card, a USSD-style terminal box —
-// instead of a plain text row. Deliberately doesn't repeat which workflow
-// stage each one fires from; that's already covered by the Workflow tab's
-// notification badges (click to view).
+function channelIcon(channel) {
+  const c = (channel || '').toLowerCase();
+  if (c.includes('sms')) return '\u{1F4F1}';
+  if (c.includes('whatsapp')) return '\u{1F4AC}';
+  if (c.includes('ussd')) return '\u{1F5A5}️';
+  if (c.includes('email')) return '✉️';
+  return '\u{1F514}';
+}
+
+// The full styled preview per channel — an SMS/WhatsApp bubble, an email
+// card, a USSD-style terminal box — reused by both the expanded row below
+// and (previously) the always-on view this replaced.
+function channelPreview(r) {
+  const channel = (r.channel || '').toLowerCase();
+  if (channel.includes('sms')) return renderSmsPreview(r);
+  if (channel.includes('whatsapp')) return renderWhatsappPreview(r);
+  if (channel.includes('ussd')) return renderUssdPreview(r);
+  if (channel.includes('email')) return renderEmailPreview(r);
+  return '<div style="border:1px solid #e5e7eb; border-radius:6px; padding:8px; font-size:12px;">' + (r.message ? highlightPlaceholders(r.message) : '<em>(no message set)</em>') + '</div>';
+}
+
+// Rendering all 18 real notifications fully expanded at once was exactly
+// the wall of content the real product itself avoids — its own screen
+// defaults to a compact table and only a create/edit modal shows one
+// message in full. Mirrors that: grouped by event, one collapsed summary
+// line per rule, full channel-styled preview only on click.
+let expandedNotifications = new Set();
+
 function renderNotifications(notifications) {
   if (notifications.rules.length === 0) return '<p><em>Nothing extracted yet.</em></p>';
-  return notifications.rules.map((r) => {
-    const channel = (r.channel || '').toLowerCase();
-    let preview;
-    if (channel.includes('sms')) preview = renderSmsPreview(r);
-    else if (channel.includes('whatsapp')) preview = renderWhatsappPreview(r);
-    else if (channel.includes('ussd')) preview = renderUssdPreview(r);
-    else if (channel.includes('email')) preview = renderEmailPreview(r);
-    else preview = '<div style="border:1px solid #e5e7eb; border-radius:6px; padding:8px; font-size:12px;">' + (r.message ? highlightPlaceholders(r.message) : '<em>(no message set)</em>') + '</div>';
-    return '<div style="margin-bottom:16px;">' +
-      '<div style="font-size:11px; color:#6b7280; margin-bottom:4px;">' + r.event.replace(/</g, '&lt;') + ' &middot; ' + r.channel.replace(/</g, '&lt;') + ' &middot; to ' + r.recipient.replace(/</g, '&lt;') + '</div>' +
-      preview + '</div>';
-  }).join('');
+  const byEvent = {};
+  notifications.rules.forEach((r) => { (byEvent[r.event] = byEvent[r.event] || []).push(r); });
+
+  let html = '<div style="font-size:12px; color:#6b7280; margin-bottom:10px;">' + notifications.rules.length + ' configured</div>';
+  Object.keys(byEvent).forEach((event) => {
+    html += '<div style="margin-bottom:14px;">';
+    html += '<div style="font-weight:600; font-size:13px; margin-bottom:4px;">' + event.replace(/</g, '&lt;') + '</div>';
+    byEvent[event].forEach((r) => {
+      const isOpen = expandedNotifications.has(r.id);
+      const raw = r.message || '';
+      const summary = raw.length > 60 ? raw.slice(0, 60) + '…' : (raw || '(no message set)');
+      html += '<div class="notif-row" data-id="' + r.id + '" style="border:1px solid #e5e7eb; border-radius:6px; padding:6px 10px; margin-bottom:4px; cursor:pointer; background:#fafbfc;">' +
+        '<div style="font-size:12px; display:flex; justify-content:space-between; align-items:center; gap:8px;">' +
+        '<span>' + channelIcon(r.channel) + ' <strong>' + r.channel.replace(/</g, '&lt;') + '</strong> &rarr; ' + r.recipient.replace(/</g, '&lt;') +
+        ' &mdash; <span style="color:#6b7280;">' + summary.replace(/</g, '&lt;') + '</span></span>' +
+        '<span style="color:#9ca3af; font-size:10px;">' + (isOpen ? '▲' : '▼') + '</span>' +
+        '</div>';
+      if (isOpen) html += '<div style="margin-top:8px;">' + channelPreview(r) + '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  });
+  return html;
+}
+
+function wireNotificationRows(container) {
+  container.querySelectorAll('.notif-row').forEach((el) => {
+    el.onclick = () => {
+      const id = el.getAttribute('data-id');
+      if (expandedNotifications.has(id)) expandedNotifications.delete(id);
+      else expandedNotifications.add(id);
+      renderActivePanel();
+    };
+  });
 }
 
 function renderOtherInformation(otherInformation) {
@@ -790,11 +835,15 @@ function renderActivePanel() {
   if (activeTab === 'checklists') {
     wireChecklistPagination(domainPanel, currentDefinition.checklists);
   }
+  if (activeTab === 'notifications') {
+    wireNotificationRows(domainPanel);
+  }
 }
 
 function renderDefinition(definition) {
   currentDefinition = definition;
   checklistPageIndex = 0;
+  expandedNotifications = new Set();
   renderActivePanel();
 }
 
