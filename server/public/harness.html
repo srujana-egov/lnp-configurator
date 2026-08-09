@@ -212,44 +212,64 @@ function rectBoundaryPoint(cx, cy, w, h, towardX, towardY) {
   return { x: cx + dx * scale, y: cy + dy * scale };
 }
 
-function renderWorkflow(workflow, definition) {
-  let html = '';
-  if (workflow.states.length > 0) {
-    const distance = computeWorkflowLayers(workflow.states, workflow.transitions);
-    const startLabel = (workflow.states.find((s) => s.label === 'Start') || workflow.states[0]).label;
-    const knownRoles = (definition && definition.roles) || [];
+function renderWorkflowLegend() {
+  const swatch = (color) => '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + color + ';margin-right:4px;"></span>';
+  const line = (color) => '<span style="display:inline-block;width:14px;height:2px;background:' + color + ';margin-right:4px;vertical-align:middle;"></span>';
+  return '<div style="display:flex; gap:14px; flex-wrap:wrap; font-size:11px; color:#4b5563; margin-bottom:8px; align-items:center;">' +
+    '<span>' + swatch('#3b82f6') + 'Start</span>' +
+    '<span>' + swatch('#10b981') + 'Terminal</span>' +
+    '<span>' + swatch('#8b93a3') + 'Other state</span>' +
+    '<span>' + line('#94a3b8') + 'Forward action</span>' +
+    '<span>' + line('#f87171') + 'Back / reject / retry</span>' +
+    '<span style="color:#d97706;">⚠ role not in Roles list</span>' +
+    '<span style="color:#7c6ff0; text-decoration:underline; cursor:default;">\u{1F4CB} checklist — click to view</span>' +
+    '<span style="color:#d97706; text-decoration:underline; cursor:default;">\u{1F514} notification — click to view</span>' +
+    '</div>';
+}
 
-    // Cross-domain context: where a Checklist actually attaches (by
-    // stage) and where a Notification actually fires from (by event) —
-    // both already exist in the data, just weren't shown on the diagram.
-    // Not every checklist/notification will show up here — a notification
-    // event that doesn't match any state label is expected (real tenants
-    // do this, see the plan's soft-warning note), not a bug.
-    const checklistsByStage = {};
-    ((definition && definition.checklists) || []).forEach((c) => {
-      (checklistsByStage[c.stage] = checklistsByStage[c.stage] || []).push(c);
-    });
-    const notificationsByEvent = {};
-    ((definition && definition.notifications && definition.notifications.rules) || []).forEach((r) => {
-      (notificationsByEvent[r.event] = notificationsByEvent[r.event] || []).push(r);
-    });
+// Split out from renderWorkflow so the exact same diagram can be built
+// twice — once at the harness panel's compact size, once again inside the
+// fullscreen overlay (openWorkflowFullscreen) — without duplicating the
+// layout/edge-routing logic.
+function buildWorkflowSvgHtml(workflow, definition) {
+  if (workflow.states.length === 0) return '';
+  const distance = computeWorkflowLayers(workflow.states, workflow.transitions);
+  const startLabel = (workflow.states.find((s) => s.label === 'Start') || workflow.states[0]).label;
+  const knownRoles = (definition && definition.roles) || [];
 
-    function subtitleLinesFor(s) {
-      const lines = [];
-      const slaDocParts = [];
-      if (s.slaHours != null) slaDocParts.push('SLA ' + s.slaHours + 'h');
-      if (s.docUploadRequired) slaDocParts.push('doc required');
-      if (slaDocParts.length) lines.push({ text: slaDocParts.join(' · '), color: '#6b7280' });
-      const checklists = checklistsByStage[s.label];
-      if (checklists && checklists.length) {
-        lines.push({ text: '\u{1F4CB} ' + checklists.length + ' checklist' + (checklists.length > 1 ? 's' : ''), color: '#7c6ff0' });
-      }
-      const notes = notificationsByEvent[s.label];
-      if (notes && notes.length) {
-        lines.push({ text: '\u{1F514} ' + notes.length + ' notification' + (notes.length > 1 ? 's' : ''), color: '#d97706' });
-      }
-      return lines;
+  // Cross-domain context: where a Checklist actually attaches (by
+  // stage) and where a Notification actually fires from (by event) —
+  // both already exist in the data, just weren't shown on the diagram.
+  // Not every checklist/notification will show up here — a notification
+  // event that doesn't match any state label is expected (real tenants
+  // do this, see the plan's soft-warning note), not a bug.
+  const checklistsByStage = {};
+  ((definition && definition.checklists) || []).forEach((c) => {
+    (checklistsByStage[c.stage] = checklistsByStage[c.stage] || []).push(c);
+  });
+  const notificationsByEvent = {};
+  ((definition && definition.notifications && definition.notifications.rules) || []).forEach((r) => {
+    (notificationsByEvent[r.event] = notificationsByEvent[r.event] || []).push(r);
+  });
+
+  function subtitleLinesFor(s) {
+    const lines = [];
+    const slaDocParts = [];
+    if (s.slaHours != null) slaDocParts.push('SLA ' + s.slaHours + 'h');
+    if (s.docUploadRequired) slaDocParts.push('doc required');
+    if (slaDocParts.length) lines.push({ text: slaDocParts.join(' · '), color: '#6b7280', kind: 'sla' });
+    const checklists = checklistsByStage[s.label];
+    if (checklists && checklists.length) {
+      lines.push({ text: '\u{1F4CB} ' + checklists.length + ' checklist' + (checklists.length > 1 ? 's' : ''), color: '#7c6ff0', kind: 'checklists' });
     }
+    const notes = notificationsByEvent[s.label];
+    if (notes && notes.length) {
+      lines.push({ text: '\u{1F514} ' + notes.length + ' notification' + (notes.length > 1 ? 's' : ''), color: '#d97706', kind: 'notifications' });
+    }
+    return lines;
+  }
+
+  {
 
     const colWidth = 300, rowHeight = 150, nodeWidth = 170, marginX = 60;
     // Extra headroom above row 0, not just a cosmetic margin — back-edge
@@ -402,12 +422,20 @@ function renderWorkflow(workflow, definition) {
       nodesSvg += '<text x="' + (pos.cx + 8) + '" y="' + (top + 22) + '" font-size="13" text-anchor="middle" font-weight="600" fill="#1f2937">' +
         s.label.replace(/</g, '&lt;') + '</text>';
       lines.forEach((line, i) => {
-        nodesSvg += '<text x="' + (pos.cx + 8) + '" y="' + (top + 38 + i * 14) + '" font-size="10" text-anchor="middle" fill="' + line.color + '">' +
+        // Checklist/notification badges are click-to-expand (see
+        // wireWorkflowBadges) — a real data-* hook plus a visual
+        // underline/pointer cursor so it reads as clickable, not just
+        // informational like the SLA line above it.
+        const clickable = line.kind === 'checklists' || line.kind === 'notifications';
+        const attrs = clickable
+          ? ' class="wf-badge" data-state="' + s.label.replace(/"/g, '&quot;') + '" data-kind="' + line.kind + '" style="cursor:pointer; text-decoration:underline;"'
+          : '';
+        nodesSvg += '<text x="' + (pos.cx + 8) + '" y="' + (top + 38 + i * 14) + '" font-size="10" text-anchor="middle" fill="' + line.color + '"' + attrs + '>' +
           line.text.replace(/</g, '&lt;') + '</text>';
       });
     });
 
-    html += '<div style="overflow-x:auto; border:1px solid #e5e7eb; background:#fafbfc; border-radius:8px;">';
+    let html = '<div style="overflow-x:auto; border:1px solid #e5e7eb; background:#fafbfc; border-radius:8px;">';
     html += '<svg width="' + svgWidth + '" height="' + svgHeight + '" style="display:block;">';
     html += '<defs>' +
       '<marker id="arrowFwd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="' + EDGE_COLOR + '"/></marker>' +
@@ -416,11 +444,82 @@ function renderWorkflow(workflow, definition) {
       '</defs>';
     html += edgesSvg + nodesSvg;
     html += '</svg></div>';
+    return html;
   }
+}
+
+function renderWorkflow(workflow, definition) {
+  const svgHtml = buildWorkflowSvgHtml(workflow, definition);
+  if (!svgHtml) return '<p><em>Nothing extracted yet.</em></p>';
+  let html = renderWorkflowLegend();
+  html += '<button type="button" class="wf-expand-btn" style="margin-bottom:8px;">⛶ View fullscreen</button>';
+  html += svgHtml;
+  html += '<div class="wf-detail" style="margin-top:8px;"></div>';
   if (workflow.slaDays != null) {
-    html += '<p style="margin-top:12px;"><strong>SLA:</strong> ' + workflow.slaDays + ' days</p>';
+    html += '<p style="margin-top:12px;"><strong>Overall SLA:</strong> ' + workflow.slaDays + ' days</p>';
   }
-  return html || '<p><em>Nothing extracted yet.</em></p>';
+  return html;
+}
+
+// Attaches the click-to-expand behavior for checklist/notification badges
+// and the fullscreen-expand button — separate from the pure HTML-building
+// functions above since it needs a live DOM node to query, not just a
+// string. Called once for the harness panel, and again for the
+// fullscreen overlay each time it opens (two independent DOM subtrees).
+function wireWorkflowBadges(container, workflow, definition) {
+  const detailEl = container.querySelector('.wf-detail');
+  container.querySelectorAll('.wf-badge').forEach((el) => {
+    el.onclick = () => {
+      if (!detailEl) return;
+      const state = el.getAttribute('data-state');
+      const kind = el.getAttribute('data-kind');
+      if (kind === 'checklists') {
+        const items = (definition.checklists || []).filter((c) => c.stage === state);
+        detailEl.innerHTML = '<div style="border:1px solid #e5e7eb; border-radius:6px; padding:8px; background:#faf9ff;">' +
+          '<strong>\u{1F4CB} Checklists at "' + state.replace(/</g, '&lt;') + '"</strong>' +
+          items.map((c) =>
+            '<div style="margin-top:6px;"><em>' + c.name.replace(/</g, '&lt;') + '</em> [' + c.module + ']<ul style="margin:4px 0;">' +
+            c.items.map((it) => '<li>' + it.item.replace(/</g, '&lt;') + ' (' + it.type + ')' + (it.required ? ' *' : '') + '</li>').join('') +
+            '</ul></div>'
+          ).join('') + '</div>';
+      } else if (kind === 'notifications') {
+        const rules = ((definition.notifications && definition.notifications.rules) || []).filter((r) => r.event === state);
+        detailEl.innerHTML = '<div style="border:1px solid #e5e7eb; border-radius:6px; padding:8px; background:#fffaf0;">' +
+          '<strong>\u{1F514} Notifications from "' + state.replace(/</g, '&lt;') + '"</strong><ul style="margin:4px 0;">' +
+          rules.map((r) =>
+            '<li>' + r.channel + ' &rarr; ' + r.recipient +
+            (r.message ? '<br/><small style="color:#666;">' + r.message.replace(/</g, '&lt;') + '</small>' : '') + '</li>'
+          ).join('') + '</ul></div>';
+      }
+    };
+  });
+  const expandBtn = container.querySelector('.wf-expand-btn');
+  if (expandBtn) expandBtn.onclick = () => openWorkflowFullscreen(workflow, definition);
+}
+
+// A much bigger canvas (95vw x 88vh) is usually enough on its own to make
+// the horizontal scroll this was built to avoid unnecessary — overflow:auto
+// stays as a fallback for a genuinely large workflow, not the default
+// experience.
+function openWorkflowFullscreen(workflow, definition) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed; inset:0; background:rgba(15,23,42,0.6); display:flex; align-items:center; justify-content:center; z-index:1000;';
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+
+  const box = document.createElement('div');
+  box.style.cssText = 'background:#ffffff; border-radius:8px; padding:20px; width:95vw; height:88vh; overflow:auto; position:relative;';
+
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.textContent = '✕ Close';
+  closeBtn.style.cssText = 'position:absolute; top:12px; right:12px;';
+  closeBtn.onclick = () => overlay.remove();
+
+  box.innerHTML = renderWorkflowLegend() + buildWorkflowSvgHtml(workflow, definition) + '<div class="wf-detail" style="margin-top:12px;"></div>';
+  box.appendChild(closeBtn);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  wireWorkflowBadges(box, workflow, definition);
 }
 
 function renderRoles(roles) {
@@ -521,6 +620,9 @@ function renderActivePanel() {
   }
   const renderer = DOMAIN_RENDERERS[activeTab];
   domainPanel.innerHTML = renderer(currentDefinition);
+  if (activeTab === 'workflow') {
+    wireWorkflowBadges(domainPanel, currentDefinition.workflow, currentDefinition);
+  }
 }
 
 function renderDefinition(definition) {
