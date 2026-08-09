@@ -125,21 +125,29 @@ export function workflowFromLlm(llm: LlmWorkflow): Workflow {
   }
 }
 
+// Drops a checklist with zero items rather than letting a hollow shell
+// linger in the definition — same defensive pattern as
+// notificationsFromLlm dropping a rule with no real event/channel/
+// recipient. Safety net behind the prompt rule that asks a guided
+// question instead of creating one; the model won't always follow that
+// instruction perfectly.
 export function checklistsFromLlm(llm: LlmChecklists): ChecklistDefinition[] {
-  return llm.map((c) => ({
-    id: freshId(),
-    name: c.name,
-    helpText: undef(c.helpText),
-    module: c.module,
-    stage: c.stage,
-    items: c.items.map((it) => ({
-      item: it.item,
-      type: it.type,
-      required: it.required,
-      options: undef(it.options) ?? undefined,
-      linkedChecklistName: undef(it.linkedChecklistName),
-    })),
-  }))
+  return llm
+    .filter((c) => c.items.length > 0)
+    .map((c) => ({
+      id: freshId(),
+      name: c.name,
+      helpText: undef(c.helpText),
+      module: c.module,
+      stage: c.stage,
+      items: c.items.map((it) => ({
+        item: it.item,
+        type: it.type,
+        required: it.required,
+        options: undef(it.options) ?? undefined,
+        linkedChecklistName: undef(it.linkedChecklistName),
+      })),
+    }))
 }
 
 export function feesFromLlm(llm: LlmFees): FeeConfig {
