@@ -211,13 +211,46 @@ function rectBoundaryPoint(cx, cy, w, h, towardX, towardY) {
   return { x: cx + dx * scale, y: cy + dy * scale };
 }
 
-function renderWorkflow(workflow) {
+function renderWorkflow(workflow, definition) {
   let html = '';
   if (workflow.states.length > 0) {
     const distance = computeWorkflowLayers(workflow.states, workflow.transitions);
     const startLabel = (workflow.states.find((s) => s.label === 'Start') || workflow.states[0]).label;
+    const knownRoles = (definition && definition.roles) || [];
 
-    const colWidth = 300, rowHeight = 130, nodeWidth = 170, nodeHeight = 56, marginX = 60;
+    // Cross-domain context: where a Checklist actually attaches (by
+    // stage) and where a Notification actually fires from (by event) —
+    // both already exist in the data, just weren't shown on the diagram.
+    // Not every checklist/notification will show up here — a notification
+    // event that doesn't match any state label is expected (real tenants
+    // do this, see the plan's soft-warning note), not a bug.
+    const checklistsByStage = {};
+    ((definition && definition.checklists) || []).forEach((c) => {
+      (checklistsByStage[c.stage] = checklistsByStage[c.stage] || []).push(c);
+    });
+    const notificationsByEvent = {};
+    ((definition && definition.notifications && definition.notifications.rules) || []).forEach((r) => {
+      (notificationsByEvent[r.event] = notificationsByEvent[r.event] || []).push(r);
+    });
+
+    function subtitleLinesFor(s) {
+      const lines = [];
+      const slaDocParts = [];
+      if (s.slaHours != null) slaDocParts.push('SLA ' + s.slaHours + 'h');
+      if (s.docUploadRequired) slaDocParts.push('doc required');
+      if (slaDocParts.length) lines.push({ text: slaDocParts.join(' · '), color: '#6b7280' });
+      const checklists = checklistsByStage[s.label];
+      if (checklists && checklists.length) {
+        lines.push({ text: '\u{1F4CB} ' + checklists.length + ' checklist' + (checklists.length > 1 ? 's' : ''), color: '#7c6ff0' });
+      }
+      const notes = notificationsByEvent[s.label];
+      if (notes && notes.length) {
+        lines.push({ text: '\u{1F514} ' + notes.length + ' notification' + (notes.length > 1 ? 's' : ''), color: '#d97706' });
+      }
+      return lines;
+    }
+
+    const colWidth = 300, rowHeight = 150, nodeWidth = 170, marginX = 60;
     // Extra headroom above row 0, not just a cosmetic margin — back-edge
     // curves and self-loops both draw ABOVE their row, and the first pass at
     // this diagram clipped labels off the top of the canvas because this
@@ -235,9 +268,15 @@ function renderWorkflow(workflow) {
     let maxRows = 1;
     colKeys.forEach((col, colIdx) => {
       columns[col].forEach((s, rowIdx) => {
+        // Node height is per-node now, not a shared constant — a state
+        // with checklist/notification badges needs more room than one
+        // with none, but every row still gets the same fixed slot height
+        // (rowHeight) so taller nodes don't creep into the next row.
+        const height = 44 + subtitleLinesFor(s).length * 14;
         positions[s.label] = {
           cx: marginX + colIdx * colWidth + nodeWidth / 2,
-          cy: topPadding + rowIdx * rowHeight + nodeHeight / 2,
+          cy: topPadding + rowIdx * rowHeight + rowHeight / 2,
+          height,
         };
       });
       maxRows = Math.max(maxRows, columns[col].length);
@@ -267,18 +306,23 @@ function renderWorkflow(workflow) {
     // that you edit this by chatting, not by dragging nodes, so no
     // interactivity here on purpose (see plan: functionality of DIGIT
     // Studio's editor, look of n8n, scoped to read-only rendering).
-    const EDGE_COLOR = '#94a3b8', BACK_EDGE_COLOR = '#f87171', PORT_RADIUS = 3.5;
+    const EDGE_COLOR = '#94a3b8', BACK_EDGE_COLOR = '#f87171', WARNING_COLOR = '#d97706', PORT_RADIUS = 3.5;
 
     // Role+action stack as two short lines rather than one long joined
     // string — real action labels ("Document Verifier: Verify Document")
     // are wide enough at any readable font size to overlap neighboring
-    // nodes if kept on one line.
+    // nodes if kept on one line. A role not in the real Roles list (feature
+    // ask: cross-check against the Roles step) gets a warning marker and
+    // color instead of silently rendering like a normal, real role.
     function edgeLabel(x, y, roles, action, color) {
-      const roleText = (roles || []).join(', ');
+      const roleList = roles || [];
+      const hasUnknown = roleList.some((r) => !knownRoles.includes(r));
+      const roleColor = hasUnknown ? WARNING_COLOR : color;
+      const roleText = (hasUnknown ? '⚠ ' : '') + roleList.join(', ');
       let out = '';
-      if (roleText) out += '<text x="' + x + '" y="' + (y - 4) + '" font-size="10" text-anchor="middle" fill="' + color + '">' + roleText.replace(/</g, '&lt;') + '</text>';
+      if (roleList.length) out += '<text x="' + x + '" y="' + (y - 4) + '" font-size="10" text-anchor="middle" fill="' + roleColor + '">' + roleText.replace(/</g, '&lt;') + '</text>';
       if (action) out += '<text x="' + x + '" y="' + (y + 9) + '" font-size="10" text-anchor="middle" fill="' + color + '">' + action.replace(/</g, '&lt;') + '</text>';
-      if (!roleText && !action) out += '<text x="' + x + '" y="' + (y + 3) + '" font-size="10" text-anchor="middle" fill="' + color + '">(no role/action)</text>';
+      if (!roleList.length && !action) out += '<text x="' + x + '" y="' + (y + 3) + '" font-size="10" text-anchor="middle" fill="' + color + '">(no role/action)</text>';
       return out;
     }
 
@@ -289,7 +333,7 @@ function renderWorkflow(workflow) {
       if (!from) return;
       selfLoops[label].forEach((t, i) => {
         const stroke = BACK_EDGE_COLOR;
-        const topY = from.cy - nodeHeight / 2;
+        const topY = from.cy - from.height / 2;
         const loopTop = topY - 45 - i * 40;
         const x1 = from.cx - 18, x2 = from.cx + 18;
         const d = 'M ' + x1 + ' ' + topY + ' C ' + (x1 - 10) + ' ' + loopTop + ', ' + (x2 + 10) + ' ' + loopTop + ', ' + x2 + ' ' + topY;
@@ -330,8 +374,8 @@ function renderWorkflow(workflow) {
         // minimum curve (n8n never draws a perfectly straight connector)
         // keeps even the simple single-edge case looking organic.
         const offset = n > 1 ? (i - (n - 1) / 2) * 60 : 18;
-        const p1 = rectBoundaryPoint(from.cx, from.cy, nodeWidth, nodeHeight, to.cx, to.cy);
-        const p2 = rectBoundaryPoint(to.cx, to.cy, nodeWidth, nodeHeight, from.cx, from.cy);
+        const p1 = rectBoundaryPoint(from.cx, from.cy, nodeWidth, from.height, to.cx, to.cy);
+        const p2 = rectBoundaryPoint(to.cx, to.cy, nodeWidth, to.height, from.cx, from.cy);
         const mx = (p1.x + p2.x) / 2, my = (p1.y + p2.y) / 2;
         const cx = mx + nx * offset, cy = my + ny * offset;
         edgesSvg += '<path d="M ' + p1.x + ' ' + p1.y + ' Q ' + cx + ' ' + cy + ' ' + p2.x + ' ' + p2.y +
@@ -349,19 +393,17 @@ function renderWorkflow(workflow) {
       const isStart = s.label === startLabel;
       const isTerminal = !workflow.transitions.some((t) => t.from === s.label);
       const badgeColor = isStart ? '#3b82f6' : (isTerminal ? '#10b981' : '#8b93a3');
-      const subtitleParts = [];
-      if (s.slaHours != null) subtitleParts.push('SLA ' + s.slaHours + 'h');
-      if (s.docUploadRequired) subtitleParts.push('doc required');
-      const subtitle = subtitleParts.join(' · ');
-      const left = pos.cx - nodeWidth / 2, top = pos.cy - nodeHeight / 2;
-      nodesSvg += '<rect x="' + left + '" y="' + top + '" width="' + nodeWidth + '" height="' + nodeHeight +
+      const lines = subtitleLinesFor(s);
+      const left = pos.cx - nodeWidth / 2, top = pos.cy - pos.height / 2;
+      nodesSvg += '<rect x="' + left + '" y="' + top + '" width="' + nodeWidth + '" height="' + pos.height +
         '" rx="10" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5" filter="url(#nodeShadow)" />';
       nodesSvg += '<circle cx="' + (left + 16) + '" cy="' + (top + 16) + '" r="5" fill="' + badgeColor + '" />';
-      nodesSvg += '<text x="' + (pos.cx + 8) + '" y="' + (pos.cy - (subtitle ? 3 : -4)) + '" font-size="13" text-anchor="middle" font-weight="600" fill="#1f2937">' +
+      nodesSvg += '<text x="' + (pos.cx + 8) + '" y="' + (top + 22) + '" font-size="13" text-anchor="middle" font-weight="600" fill="#1f2937">' +
         s.label.replace(/</g, '&lt;') + '</text>';
-      if (subtitle) {
-        nodesSvg += '<text x="' + (pos.cx + 8) + '" y="' + (pos.cy + 14) + '" font-size="10" text-anchor="middle" fill="#6b7280">' + subtitle + '</text>';
-      }
+      lines.forEach((line, i) => {
+        nodesSvg += '<text x="' + (pos.cx + 8) + '" y="' + (top + 38 + i * 14) + '" font-size="10" text-anchor="middle" fill="' + line.color + '">' +
+          line.text.replace(/</g, '&lt;') + '</text>';
+      });
     });
 
     html += '<div style="overflow-x:auto; border:1px solid #e5e7eb; background:#fafbfc; border-radius:8px;">';
@@ -440,14 +482,17 @@ function renderOtherInformation(otherInformation) {
   return html || '<p><em>Nothing here yet.</em></p>';
 }
 
+// workflow's renderer takes the full definition, not just its own slice —
+// it cross-references roles/checklists/notifications to show where each
+// actually plays in, so it needs more than what its own tab owns.
 const DOMAIN_RENDERERS = {
-  registry: renderRegistry,
-  workflow: renderWorkflow,
-  roles: renderRoles,
-  checklists: renderChecklists,
-  fees: renderFees,
-  notifications: renderNotifications,
-  otherInformation: renderOtherInformation,
+  registry: (def) => renderRegistry(def.registry),
+  workflow: (def) => renderWorkflow(def.workflow, def),
+  roles: (def) => renderRoles(def.roles),
+  checklists: (def) => renderChecklists(def.checklists),
+  fees: (def) => renderFees(def.fees),
+  notifications: (def) => renderNotifications(def.notifications),
+  otherInformation: (def) => renderOtherInformation(def.otherInformation),
 };
 
 function renderTabs() {
@@ -468,7 +513,7 @@ function renderActivePanel() {
     return;
   }
   const renderer = DOMAIN_RENDERERS[activeTab];
-  domainPanel.innerHTML = renderer(currentDefinition[activeTab]);
+  domainPanel.innerHTML = renderer(currentDefinition);
 }
 
 function renderDefinition(definition) {
