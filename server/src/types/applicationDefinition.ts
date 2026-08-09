@@ -207,8 +207,21 @@ export interface FeeConfig {
 }
 
 // --- Roles / Notifications -----------------------------------------------
+// Real evidence (the actual target product's own Roles step, Bissau
+// tenant): each role has a description and a tag ("Public" for
+// citizen-facing roles), not just a bare name. Upgraded from a plain
+// string list. WorkflowTransition.roles stays a plain string[] on
+// purpose — it references a role BY NAME, the same way Checklist.stage
+// and NotificationRule.event reference a Workflow state by label, not by
+// object identity.
 
-export type Roles = string[]
+export interface Role {
+  name: string
+  description?: string
+  tag?: string
+}
+
+export type Roles = Role[]
 
 export interface NotificationRule {
   id: string

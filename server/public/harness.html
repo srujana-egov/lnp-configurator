@@ -487,12 +487,15 @@ function wireWorkflowBadges(container, workflow, definition) {
     el.onclick = () => {
       if (!detailEl) return;
       const action = el.getAttribute('data-action');
-      let roles = [];
-      try { roles = JSON.parse(el.getAttribute('data-roles') || '[]'); } catch (e) { roles = []; }
-      const roleRows = roles.length
-        ? roles.map((r) => knownRoles.includes(r)
-            ? '<li>' + r.replace(/</g, '&lt;') + '</li>'
-            : '<li style="color:#d97706;">⚠ ' + r.replace(/</g, '&lt;') + ' (not in the current Roles list)</li>').join('')
+      let roleNames = [];
+      try { roleNames = JSON.parse(el.getAttribute('data-roles') || '[]'); } catch (e) { roleNames = []; }
+      const roleRows = roleNames.length
+        ? roleNames.map((r) => {
+            const known = knownRoles.find((role) => role.name === r);
+            return known
+              ? '<li>' + roleIcon(known) + ' ' + r.replace(/</g, '&lt;') + '</li>'
+              : '<li style="color:#d97706;">⚠ ' + r.replace(/</g, '&lt;') + ' (not in the current Roles list)</li>';
+          }).join('')
         : '<li><em>No role specified</em></li>';
       detailEl.innerHTML = '<div style="border:1px solid #e5e7eb; border-radius:6px; padding:8px; background:#fafbfc;">' +
         '<strong>Action: ' + action.replace(/</g, '&lt;') + '</strong><ul style="margin:4px 0;">' + roleRows + '</ul></div>';
@@ -527,9 +530,59 @@ function openWorkflowFullscreen(workflow, definition) {
   wireWorkflowBadges(box, workflow, definition);
 }
 
-function renderRoles(roles) {
+// Simple heuristic, same one suggested when this was asked for: a
+// citizen/public-facing role gets a plain person icon, anything else
+// (internal staff/admin) gets a person-in-a-suit icon. Reused on the
+// Workflow tab's role detail popup too, so the same role always looks
+// the same in both places.
+function roleIcon(role) {
+  const text = (role.name + ' ' + (role.description || '')).toLowerCase();
+  const isCitizenLike = role.tag === 'Public' || /citizen|applicant|public/.test(text);
+  return isCitizenLike ? '\u{1F9D1}' : '\u{1F9D1}‍\u{1F4BC}';
+}
+
+// Mirrors the real target screen's green/red/gray action pills — a rough
+// keyword heuristic, not a stored field, since the action text itself
+// already carries this meaning most of the time.
+function actionPillStyle(action) {
+  const text = (action || '').toLowerCase();
+  if (/reject|fail|back|deny/.test(text)) return 'background:#fee2e2; color:#b91c1c;';
+  if (/pass|approve|issue|resolve|confirm/.test(text)) return 'background:#dcfce7; color:#15803d;';
+  return 'background:#f3f4f6; color:#374151;';
+}
+
+function renderRoles(definition) {
+  const roles = definition.roles;
   if (roles.length === 0) return '<p><em>Nothing extracted yet.</em></p>';
-  return '<ul>' + roles.map((r) => '<li>' + r + '</li>').join('') + '</ul>';
+  const transitions = (definition.workflow && definition.workflow.transitions) || [];
+  let html = '';
+  roles.forEach((role) => {
+    // Real target screen shows each role's actual [stage] -> [action]
+    // involvement — computed live from Workflow, same cross-domain
+    // pattern already used on the Workflow diagram itself, not a
+    // separately stored field.
+    const stageActions = transitions.filter((t) => (t.roles || []).includes(role.name));
+    html += '<div style="border:1px solid #e5e7eb; border-radius:8px; padding:10px; margin-bottom:8px; display:flex; gap:10px;">';
+    html += '<div style="font-size:22px; line-height:1;">' + roleIcon(role) + '</div>';
+    html += '<div style="flex:1;">';
+    html += '<div style="font-weight:600;">' + role.name.replace(/</g, '&lt;') +
+      (role.tag ? ' <span style="font-size:10px; color:#6b7280; border:1px solid #d1d5db; border-radius:10px; padding:1px 6px; margin-left:4px;">' + role.tag.replace(/</g, '&lt;') + '</span>' : '') +
+      '</div>';
+    if (role.description) html += '<div style="font-size:12px; color:#6b7280; margin-top:2px;">' + role.description.replace(/</g, '&lt;') + '</div>';
+    if (stageActions.length > 0) {
+      html += '<div style="margin-top:6px; display:flex; flex-wrap:wrap; gap:6px;">';
+      stageActions.forEach((t) => {
+        html += '<span style="font-size:11px;">' +
+          '<span style="background:#ede9fe; color:#5b21b6; border-radius:10px; padding:2px 8px;">' + t.from.replace(/</g, '&lt;') + '</span>' +
+          ' &rarr; ' +
+          '<span style="' + actionPillStyle(t.action) + ' border-radius:10px; padding:2px 8px;">' + (t.action || '(no action)').replace(/</g, '&lt;') + '</span>' +
+          '</span>';
+      });
+      html += '</div>';
+    }
+    html += '</div></div>';
+  });
+  return html;
 }
 
 // One checklist at a time, with the stage it belongs to as the prominent
@@ -627,7 +680,7 @@ function renderOtherInformation(otherInformation) {
 const DOMAIN_RENDERERS = {
   registry: (def) => renderRegistry(def.registry),
   workflow: (def) => renderWorkflow(def.workflow, def),
-  roles: (def) => renderRoles(def.roles),
+  roles: (def) => renderRoles(def),
   checklists: (def) => renderChecklists(def.checklists),
   fees: (def) => renderFees(def.fees),
   notifications: (def) => renderNotifications(def.notifications),

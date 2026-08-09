@@ -189,7 +189,15 @@ function buildBusinessLicenseTemplate(): ApplicationDefinition {
         },
       ],
     },
-    roles: ['Citizen', 'Document Verifier', 'Field Inspector', 'Approver'],
+    // Real evidence (the actual target product's own Roles step, Bissau
+    // tenant) — descriptions and the "Public" tag transcribed directly,
+    // not invented.
+    roles: [
+      { name: 'Citizen', description: 'Applicant applying for a Business License', tag: 'Public' },
+      { name: 'Document Verifier', description: 'Reviews submitted applications and verifies documents' },
+      { name: 'Field Inspector', description: 'Visits the business site and confirms compliance' },
+      { name: 'Approver', description: 'Final approving authority for licence issuance' },
+    ],
     workflow: { states, transitions, slaDays: 15 },
     checklists: [
       {

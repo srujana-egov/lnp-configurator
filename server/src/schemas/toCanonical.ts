@@ -7,6 +7,7 @@ import {
   FeeConfigSchema,
   NotificationsSchema,
   OtherInformationSchema,
+  RoleSchema,
 } from './applicationDefinitionSchema.js'
 import type {
   Metadata,
@@ -43,7 +44,7 @@ export type LlmChecklists = z.infer<typeof ChecklistDefinitionSchema>[]
 export type LlmFees = z.infer<typeof FeeConfigSchema>
 export type LlmNotifications = z.infer<typeof NotificationsSchema>
 export type LlmOtherInformation = z.infer<typeof OtherInformationSchema>
-export type LlmRoles = string[]
+export type LlmRoles = z.infer<typeof RoleSchema>[]
 
 /**
  * Per-domain LLM output -> canonical. Every field a domain agent proposes
@@ -167,7 +168,7 @@ export function otherInformationFromLlm(llm: LlmOtherInformation): OtherInformat
 }
 
 export function rolesFromLlm(llm: LlmRoles): Roles {
-  return llm
+  return llm.map((r) => ({ name: r.name, description: undef(r.description), tag: undef(r.tag) }))
 }
 
 /**
@@ -277,5 +278,5 @@ export function otherInformationToLlm(otherInformation: OtherInformation): LlmOt
 }
 
 export function rolesToLlm(roles: Roles): LlmRoles {
-  return roles
+  return roles.map((r) => ({ name: r.name, description: r.description ?? null, tag: r.tag ?? null }))
 }

@@ -175,11 +175,17 @@ export const SettingsSchema = z.object({
   language: z.string(),
 })
 
+export const RoleSchema = z.object({
+  name: z.string(),
+  description: z.string().nullable(),
+  tag: z.string().nullable(),
+})
+
 export const ApplicationDefinitionSchema = z.object({
   metadata: MetadataSchema,
   registry: RegistrySchema,
   workflow: WorkflowSchema,
-  roles: z.array(z.string()),
+  roles: z.array(RoleSchema),
   checklists: z.array(ChecklistDefinitionSchema),
   fees: FeeConfigSchema,
   notifications: NotificationsSchema,

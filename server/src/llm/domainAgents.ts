@@ -12,6 +12,7 @@ import {
   FeeConfigSchema,
   NotificationsSchema,
   OtherInformationSchema,
+  RoleSchema,
 } from '../schemas/applicationDefinitionSchema.js'
 import {
   metadataFromLlm,
@@ -143,7 +144,7 @@ export async function runDomainAgent(
       return { ...withCommon(parsed), applyTo: (d) => ({ ...d, workflow: slice }) }
     }
     case 'roles': {
-      const parsed = await callDomainAgent(domain, z.array(z.string()), rolesToLlm(currentDefinition.roles), crossReference, transcript, message, files)
+      const parsed = await callDomainAgent(domain, z.array(RoleSchema), rolesToLlm(currentDefinition.roles), crossReference, transcript, message, files)
       const slice = rolesFromLlm(parsed.data)
       return { ...withCommon(parsed), applyTo: (d) => ({ ...d, roles: slice }) }
     }
