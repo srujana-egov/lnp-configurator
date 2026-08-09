@@ -51,6 +51,7 @@
       <div style="flex: 1; min-width: 360px;">
         <h2>Application Definition</h2>
         <div id="domainTabs" style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px;"></div>
+        <div id="domainHints" style="margin-bottom: 8px;"></div>
         <div id="domainPanel"></div>
       </div>
     </div>
@@ -495,6 +496,70 @@ const DOMAIN_RENDERERS = {
   otherInformation: (def) => renderOtherInformation(def.otherInformation),
 };
 
+// Real user-testing finding: given a default-filled configuration, people
+// barely touch anything except Fees — not because the other domains don't
+// need attention, but because nothing invites them to look. DIGIT Studio's
+// own Workflow Management tool has a permanent "Quick Start / How to
+// Connect" panel for exactly this reason. These are inspiration, not
+// direct answers to a question — clicking one fills the message box
+// (like ChatGPT's example-prompt tiles) rather than sending immediately,
+// so the user can adjust it to their real case before sending.
+const DOMAIN_HINTS = {
+  registry: [
+    'Add a new section, e.g. "Add a Business Details section with trade name and registration number"',
+    'Add a required document, e.g. "Applicants must upload a No Objection Certificate"',
+    'Mark a dropdown as database-driven instead of a fixed list',
+  ],
+  workflow: [
+    'Add a stage, e.g. "Add a Pending Approval stage after Site Inspection"',
+    'Connect two stages, e.g. "Add a Reject action from Pending Approval back to Pending Review"',
+    'Set a per-stage rule, e.g. "Pending Review has a 48 hour SLA and requires a document upload"',
+  ],
+  roles: [
+    'Add a role, e.g. "Add a Field Inspector role"',
+    'Flag a duplicate, e.g. "Is Site Inspector the same as Field Inspector?"',
+  ],
+  checklists: [
+    'Add a checklist, e.g. "Add a site inspection checklist for the Pending Field Inspection stage"',
+    'Add an item to one that exists, e.g. "Add a photo-upload item to the site inspection checklist"',
+  ],
+  fees: [
+    'Add a fee component, e.g. "Add a Late Filing Fee of 1000"',
+    'Add a surcharge, e.g. "Add a 5% processing surcharge on top of the total"',
+    'Ask for the math, e.g. "Walk me through the total fee calculation"',
+  ],
+  notifications: [
+    'Add a rule, e.g. "Send an SMS when the application is approved"',
+    'Add a cheaper channel, e.g. "Switch the reminder notifications to WhatsApp instead of SMS"',
+  ],
+  otherInformation: [
+    'Describe anything that doesn’t fit elsewhere, e.g. "There’s a recurring monthly fee reminder with a grace period"',
+  ],
+};
+
+function useHint(text) {
+  const input = document.getElementById('messageInput');
+  input.value = text;
+  input.focus();
+}
+
+function renderDomainHints() {
+  const hints = DOMAIN_HINTS[activeTab] || [];
+  const el = document.getElementById('domainHints');
+  if (hints.length === 0) {
+    el.innerHTML = '';
+    return;
+  }
+  el.innerHTML = '<div style="border:1px solid #e5e7eb; border-radius:6px; padding:8px; background:#fafbfc;">' +
+    '<div style="font-size:12px; color:#6b7280; margin-bottom:4px;">\u{1F4A1} What you can do here — click to try one:</div>' +
+    hints.map((h, i) =>
+      '<button type="button" class="hintBtn" data-hint-index="' + i + '" style="display:block; width:100%; text-align:left; margin-bottom:4px; font-size:12px; padding:4px 6px;">' +
+      h.replace(/</g, '&lt;') + '</button>'
+    ).join('') +
+    '</div>';
+  el.querySelectorAll('.hintBtn').forEach((btn, i) => { btn.onclick = () => useHint(hints[i]); });
+}
+
 function renderTabs() {
   domainTabs.innerHTML = '';
   for (const tab of TABS) {
@@ -502,9 +567,10 @@ function renderTabs() {
     btn.type = 'button';
     btn.textContent = tab.label;
     btn.style.fontWeight = tab.key === activeTab ? 'bold' : 'normal';
-    btn.onclick = () => { activeTab = tab.key; renderTabs(); renderActivePanel(); };
+    btn.onclick = () => { activeTab = tab.key; renderTabs(); renderDomainHints(); renderActivePanel(); };
     domainTabs.appendChild(btn);
   }
+  renderDomainHints();
 }
 
 function renderActivePanel() {
