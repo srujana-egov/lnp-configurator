@@ -63,6 +63,22 @@ function crossReferenceFor(domain: RoutableDomain, definition: ApplicationDefini
       ? `Existing workflow state labels (read-only, do not edit): ${JSON.stringify(stateLabels)}`
       : 'No workflow states exist yet.'
   }
+  if (domain === 'fees') {
+    // Real evidence: the actual product's own Custom Logic "Select Fields"
+    // step pulls dependency options from the Application Form, with an
+    // explicit real message when a needed field isn't there yet ("add it
+    // first in Application Configuration -> Form"). Same rule here.
+    const fields: { label: string; type: string; dropdownOptions?: string[] }[] = []
+    definition.registry.sections.forEach((s) => {
+      (s.fields ?? []).forEach((f) => fields.push({ label: f.label, type: f.type, dropdownOptions: f.dropdownOptions }))
+      ;(s.subsections ?? []).forEach((sub) =>
+        sub.fields.forEach((f) => fields.push({ label: f.label, type: f.type, dropdownOptions: f.dropdownOptions })),
+      )
+    })
+    return fields.length > 0
+      ? `Existing Application Form fields you may base a fee dependency on (read-only, do not edit): ${JSON.stringify(fields)}`
+      : 'No Application Form fields exist yet — if a fee dependency is described, say the field needs to be added to the Form first, do not invent one.'
+  }
   return null
 }
 

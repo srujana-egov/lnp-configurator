@@ -199,11 +199,37 @@ export interface AdditionalFeeComponent {
   value: number
 }
 
+// 'custom' mode only — real evidence from the actual product's own 5-step
+// Custom Logic wizard (Select Fields -> Configure Slabs -> Fee Matrix ->
+// Add-ons -> Confirm). A slab range is either numeric (Number/Year fields)
+// or one range per dropdown option (Dropdown fields auto-use their real
+// configured options as fee dimensions, exactly like the real wizard).
+export interface FeeSlabRange {
+  label: string
+  from?: number
+  to?: number
+}
+
+export interface FeeDependentField {
+  // References a real Registry field by label — the real wizard's own
+  // rule ("add it first in Application Configuration -> Form" if it
+  // doesn't exist yet) applies here too; never invent a field.
+  fieldLabel: string
+  ranges: FeeSlabRange[]
+}
+
+export interface FeeMatrixRow {
+  // fieldLabel -> range label, e.g. {"Category of Business": "Workshops", "Business Area": "0-100"}
+  combination: Record<string, string>
+  amount: number
+}
+
 export interface FeeConfig {
   mode: 'flat' | 'custom'
   feeComponents: FeeComponent[]
   additionalComponents: AdditionalFeeComponent[]
-  // 'custom' mode (slabs/fee matrix) — Sprint 6 stretch, not built in the walking skeleton.
+  dependentFields?: FeeDependentField[]
+  matrix?: FeeMatrixRow[]
 }
 
 // --- Roles / Notifications -----------------------------------------------

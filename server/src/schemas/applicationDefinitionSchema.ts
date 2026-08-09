@@ -140,10 +140,28 @@ export const AdditionalFeeComponentSchema = z.object({
   value: z.number().nonnegative().nullable(),
 })
 
+export const FeeSlabRangeSchema = z.object({
+  label: z.string(),
+  from: z.number().nullable(),
+  to: z.number().nullable(),
+})
+
+export const FeeDependentFieldSchema = z.object({
+  fieldLabel: z.string(),
+  ranges: z.array(FeeSlabRangeSchema),
+})
+
+export const FeeMatrixRowSchema = z.object({
+  combination: z.array(z.object({ fieldLabel: z.string(), rangeLabel: z.string() })),
+  amount: z.number().nonnegative(),
+})
+
 export const FeeConfigSchema = z.object({
   mode: z.enum(['flat', 'custom']),
   feeComponents: z.array(FeeComponentSchema),
   additionalComponents: z.array(AdditionalFeeComponentSchema),
+  dependentFields: z.array(FeeDependentFieldSchema).nullable(),
+  matrix: z.array(FeeMatrixRowSchema).nullable(),
 })
 
 // Same partial-knowledge reasoning as FeeComponent — event/channel/recipient

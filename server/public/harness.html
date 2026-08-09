@@ -649,7 +649,89 @@ function wireChecklistPagination(container, checklists) {
   if (nextBtn) nextBtn.onclick = () => { checklistPageIndex += 1; renderActivePanel(); };
 }
 
+// Deterministic, computed from the real data — not a separate free-text
+// "formula" the model authors, which could drift from the matrix it just
+// extracted. Real evidence: the actual product's own Custom Logic wizard
+// (Select Fields -> Configure Slabs -> Fee Matrix -> Add-ons).
+function feeFormulaSummary(fees) {
+  const depNames = (fees.dependentFields || []).map((f) => f.fieldLabel);
+  let text = depNames.length
+    ? 'Fee depends on ' + depNames.map((n) => '<strong>' + n.replace(/</g, '&lt;') + '</strong>').join(' and ') + ' — see matrix below.'
+    : 'Fee is looked up from a matrix.';
+  if (fees.additionalComponents && fees.additionalComponents.length) {
+    text += ' Plus: ' + fees.additionalComponents.map((c) =>
+      c.name.replace(/</g, '&lt;') + ' (' + (c.type === 'percentage' ? c.value + '%' : 'Fr' + c.value) + ')'
+    ).join(', ') + '.';
+  }
+  return text;
+}
+
+function feeWorkedExample(row, additionalComponents) {
+  const title = Object.entries(row.combination).map(([field, range]) => field + ' = ' + range).join(', ');
+  const lines = ['Base (from matrix): Fr' + row.amount];
+  let total = row.amount;
+  (additionalComponents || []).forEach((c) => {
+    const add = c.type === 'percentage' ? total * (c.value / 100) : c.value;
+    lines.push(c.name + ' (' + (c.type === 'percentage' ? c.value + '%' : 'flat') + '): +Fr' + add.toFixed(2));
+    total += add;
+  });
+  lines.push('Total: Fr' + total.toFixed(2));
+  return { title, lines };
+}
+
+let expandedFeeExamples = new Set();
+
+function renderCustomFees(fees) {
+  let html = '<div style="border:1px solid #d1d5db; border-radius:8px; padding:10px; background:#f8fafc; margin-bottom:12px; font-size:13px;">' +
+    feeFormulaSummary(fees) + '</div>';
+
+  const matrix = fees.matrix || [];
+  if (matrix.length === 0) {
+    return html + '<p><em>Dependencies are set (' + fees.dependentFields.map((f) => f.fieldLabel.replace(/</g, '&lt;')).join(', ') + '), but no matrix amounts yet.</em></p>';
+  }
+
+  html += '<div style="margin-bottom:6px; font-size:12px; color:#6b7280;">Worked examples — click to expand:</div>';
+  matrix.slice(0, 3).forEach((row, idx) => {
+    const id = 'fee_ex_' + idx;
+    const isOpen = expandedFeeExamples.has(id);
+    const example = feeWorkedExample(row, fees.additionalComponents);
+    html += '<div class="fee-example-row" data-id="' + id + '" style="border:1px solid #e5e7eb; border-radius:6px; padding:6px 10px; margin-bottom:4px; cursor:pointer; background:#fafbfc;">' +
+      '<div style="display:flex; justify-content:space-between; font-size:12px;"><span>' + example.title.replace(/</g, '&lt;') + '</span>' +
+      '<span style="color:#9ca3af;">' + (isOpen ? '▲' : '▼') + '</span></div>';
+    if (isOpen) {
+      html += '<div style="margin-top:6px; font-size:12px; color:#374151;">' + example.lines.map((l) => '<div>' + l.replace(/</g, '&lt;') + '</div>').join('') + '</div>';
+    }
+    html += '</div>';
+  });
+
+  const fieldNames = fees.dependentFields.map((f) => f.fieldLabel);
+  html += '<table style="margin-top:10px; font-size:12px; border-collapse:collapse; width:100%;"><thead><tr>';
+  fieldNames.forEach((n) => { html += '<th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:4px;">' + n.replace(/</g, '&lt;') + '</th>'; });
+  html += '<th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:4px;">Fee (Fr)</th></tr></thead><tbody>';
+  matrix.forEach((row) => {
+    html += '<tr>';
+    fieldNames.forEach((n) => { html += '<td style="padding:4px; border-bottom:1px solid #f3f4f6;">' + (row.combination[n] || '').replace(/</g, '&lt;') + '</td>'; });
+    html += '<td style="padding:4px; border-bottom:1px solid #f3f4f6;">' + row.amount + '</td></tr>';
+  });
+  html += '</tbody></table>';
+  return html;
+}
+
+function wireFeeExamples(container) {
+  container.querySelectorAll('.fee-example-row').forEach((el) => {
+    el.onclick = () => {
+      const id = el.getAttribute('data-id');
+      if (expandedFeeExamples.has(id)) expandedFeeExamples.delete(id);
+      else expandedFeeExamples.add(id);
+      renderActivePanel();
+    };
+  });
+}
+
 function renderFees(fees) {
+  if (fees.mode === 'custom' && fees.dependentFields && fees.dependentFields.length > 0) {
+    return renderCustomFees(fees);
+  }
   if (fees.feeComponents.length === 0 && fees.additionalComponents.length === 0) {
     return '<p><em>Nothing extracted yet.</em></p>';
   }
@@ -838,12 +920,16 @@ function renderActivePanel() {
   if (activeTab === 'notifications') {
     wireNotificationRows(domainPanel);
   }
+  if (activeTab === 'fees') {
+    wireFeeExamples(domainPanel);
+  }
 }
 
 function renderDefinition(definition) {
   currentDefinition = definition;
   checklistPageIndex = 0;
   expandedNotifications = new Set();
+  expandedFeeExamples = new Set();
   renderActivePanel();
 }
 

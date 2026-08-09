@@ -20,6 +20,8 @@ import type {
   FeeConfig,
   FeeComponent,
   AdditionalFeeComponent,
+  FeeDependentField,
+  FeeMatrixRow,
   Notifications,
   NotificationRule,
   OtherInformation,
@@ -147,7 +149,19 @@ export function feesFromLlm(llm: LlmFees): FeeConfig {
   const additionalComponents: AdditionalFeeComponent[] = llm.additionalComponents
     .filter((c): c is { name: string; type: 'flat' | 'percentage'; value: number } => c.value !== null)
     .map((c) => ({ name: c.name, type: c.type, value: c.value }))
-  return { mode: llm.mode, feeComponents, additionalComponents }
+  const dependentFields: FeeDependentField[] | undefined = llm.dependentFields
+    ? llm.dependentFields.map((f) => ({
+        fieldLabel: f.fieldLabel,
+        ranges: f.ranges.map((r) => ({ label: r.label, from: undef(r.from), to: undef(r.to) })),
+      }))
+    : undefined
+  const matrix: FeeMatrixRow[] | undefined = llm.matrix
+    ? llm.matrix.map((row) => ({
+        combination: Object.fromEntries(row.combination.map((c) => [c.fieldLabel, c.rangeLabel])),
+        amount: row.amount,
+      }))
+    : undefined
+  return { mode: llm.mode, feeComponents, additionalComponents, dependentFields, matrix }
 }
 
 export function notificationsFromLlm(llm: LlmNotifications): Notifications {
@@ -256,6 +270,18 @@ export function feesToLlm(fees: FeeConfig): LlmFees {
     mode: fees.mode,
     feeComponents: fees.feeComponents.map((c) => ({ label: c.label, amount: c.amount })),
     additionalComponents: fees.additionalComponents.map((c) => ({ name: c.name, type: c.type, value: c.value })),
+    dependentFields: fees.dependentFields
+      ? fees.dependentFields.map((f) => ({
+          fieldLabel: f.fieldLabel,
+          ranges: f.ranges.map((r) => ({ label: r.label, from: r.from ?? null, to: r.to ?? null })),
+        }))
+      : null,
+    matrix: fees.matrix
+      ? fees.matrix.map((row) => ({
+          combination: Object.entries(row.combination).map(([fieldLabel, rangeLabel]) => ({ fieldLabel, rangeLabel })),
+          amount: row.amount,
+        }))
+      : null,
   }
 }
 
