@@ -71,6 +71,7 @@ function registryFieldsFromLlm(fields: LlmRegistry['sections'][number]['fields']
     validationNotes: undef(f.validationNotes),
     dropdownOptions: undef(f.dropdownOptions) ?? undefined,
     optionsSource: undef(f.optionsSource),
+    pullFromDatabase: undef(f.pullFromDatabase),
     fieldSource: 'custom',
   }))
 }
@@ -79,6 +80,7 @@ export function registryFromLlm(llm: LlmRegistry): Registry {
   const sections: RegistrySection[] = llm.sections.map((s) => ({
     id: freshId(),
     title: s.title,
+    kind: undef(s.kind),
     conditional: undef(s.conditional),
     fields: s.fields ? registryFieldsFromLlm(s.fields) : undefined,
     subsections: s.subsections
@@ -183,6 +185,7 @@ function registryFieldsToLlm(fields: RegistryField[] | undefined) {
     validationNotes: f.validationNotes ?? null,
     dropdownOptions: f.dropdownOptions ?? null,
     optionsSource: f.optionsSource ?? null,
+    pullFromDatabase: f.pullFromDatabase ?? null,
   }))
 }
 
@@ -190,6 +193,7 @@ export function registryToLlm(registry: Registry): LlmRegistry {
   return {
     sections: registry.sections.map((s) => ({
       title: s.title,
+      kind: s.kind ?? null,
       conditional: s.conditional ?? null,
       fields: s.fields ? registryFieldsToLlm(s.fields) : null,
       subsections: s.subsections

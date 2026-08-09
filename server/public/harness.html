@@ -80,6 +80,7 @@ function fieldInput(field) {
   const notes = [];
   if (field.validationNotes) notes.push(field.validationNotes);
   if (field.optionsSource) notes.push('options from: ' + field.optionsSource);
+  if (field.pullFromDatabase) notes.push('pulls options from database');
   if (field.source) notes.push('source: ' + field.source);
 
   let inputHtml;
@@ -92,6 +93,10 @@ function fieldInput(field) {
     inputHtml = '<input type="checkbox" />';
   } else if (field.type === 'file') {
     inputHtml = '<input type="file" />';
+  } else if (field.type === 'location') {
+    // No native HTML "map picker" widget — a plain text input standing in
+    // for coordinates, with the type still shown accurately in the label.
+    inputHtml = '<input type="text" placeholder="lat, lng" />';
   } else {
     const htmlType = { number: 'number', date: 'date', year: 'number', phone: 'tel', email: 'email' }[field.type] || 'text';
     inputHtml = '<input type="' + htmlType + '" />';
@@ -110,7 +115,8 @@ function fieldInput(field) {
 function renderRegistry(registry) {
   let html = '';
   for (const section of registry.sections) {
-    html += '<fieldset><legend>' + section.title + (section.system ? ' [system]' : '') + (section.conditional ? ' [conditional]' : '') + '</legend>';
+    html += '<fieldset><legend>' + section.title + (section.kind ? ' (' + section.kind + ')' : '') +
+      (section.system ? ' [system]' : '') + (section.conditional ? ' [conditional]' : '') + '</legend>';
     for (const field of section.fields || []) html += fieldInput(field);
     for (const sub of section.subsections || []) {
       html += '<strong>' + sub.title + '</strong>';
@@ -170,13 +176,31 @@ function computeWorkflowLayers(states, transitions) {
   return distance;
 }
 
+// Point where the line from (cx,cy) toward (towardX,towardY) crosses the
+// boundary of the w×h rectangle centered at (cx,cy) — lets edges touch the
+// box edge instead of terminating in the middle of it.
+function rectBoundaryPoint(cx, cy, w, h, towardX, towardY) {
+  const dx = towardX - cx;
+  const dy = towardY - cy;
+  if (Math.abs(dx) < 1e-6 && Math.abs(dy) < 1e-6) return { x: cx, y: cy };
+  const scaleX = dx !== 0 ? (w / 2) / Math.abs(dx) : Infinity;
+  const scaleY = dy !== 0 ? (h / 2) / Math.abs(dy) : Infinity;
+  const scale = Math.min(scaleX, scaleY);
+  return { x: cx + dx * scale, y: cy + dy * scale };
+}
+
 function renderWorkflow(workflow) {
   let html = '';
   if (workflow.states.length > 0) {
     const distance = computeWorkflowLayers(workflow.states, workflow.transitions);
     const startLabel = (workflow.states.find((s) => s.label === 'Start') || workflow.states[0]).label;
-    const outgoing = {};
-    workflow.transitions.forEach((t) => { (outgoing[t.from] = outgoing[t.from] || []).push(t); });
+
+    const colWidth = 300, rowHeight = 130, nodeWidth = 170, nodeHeight = 56, marginX = 60;
+    // Extra headroom above row 0, not just a cosmetic margin — back-edge
+    // curves and self-loops both draw ABOVE their row, and the first pass at
+    // this diagram clipped labels off the top of the canvas because this
+    // wasn't accounted for.
+    const topPadding = 100;
 
     const columns = {};
     workflow.states.forEach((s) => {
@@ -185,36 +209,126 @@ function renderWorkflow(workflow) {
     });
     const colKeys = Object.keys(columns).map(Number).sort((a, b) => a - b);
 
-    html += '<div style="display:flex; gap:28px; overflow-x:auto; padding:12px 4px; border:1px solid #ccc;">';
-    for (const col of colKeys) {
-      html += '<div style="display:flex; flex-direction:column; gap:12px; min-width:190px;">';
-      for (const state of columns[col]) {
-        const stateOutgoing = outgoing[state.label] || [];
-        const isTerminal = stateOutgoing.length === 0;
-        const isStart = state.label === startLabel;
-        const borderColor = isStart ? '#3366cc' : (isTerminal ? '#2a9d5c' : '#333');
-        html += '<div style="border:2px solid ' + borderColor + '; border-radius:6px; padding:8px; background:#fafafa;">';
-        html += '<div style="font-weight:bold;">' + state.label +
-          (isStart ? ' <span style="color:#3366cc; font-weight:normal;">(start)</span>' : '') +
-          (isTerminal ? ' <span style="color:#2a9d5c; font-weight:normal;">(terminal)</span>' : '') + '</div>';
-        for (const t of stateOutgoing) {
-          const targetCol = distance[t.to];
-          const isSelfLoop = t.to === state.label;
-          const isBackEdge = !isSelfLoop && targetCol <= col;
-          const arrow = isSelfLoop ? '&#8635;' : (isBackEdge ? '&#8626;' : '&rarr;');
-          html += '<div style="font-size:12px; color:#555; margin-top:4px; border-top:1px dashed #ccc; padding-top:4px;">' +
-            arrow + ' <strong>' + t.to + '</strong>' +
-            (isBackEdge ? ' <em style="color:#a55;">(back)</em>' : '') + '<br/>' +
-            (t.role || t.action
-              ? '<em>' + [t.role, t.action].filter(Boolean).join(': ') + '</em>'
-              : '<em style="color:#999;">no role/action</em>') +
-            '</div>';
-        }
-        html += '</div>';
+    const positions = {};
+    let maxRows = 1;
+    colKeys.forEach((col, colIdx) => {
+      columns[col].forEach((s, rowIdx) => {
+        positions[s.label] = {
+          cx: marginX + colIdx * colWidth + nodeWidth / 2,
+          cy: topPadding + rowIdx * rowHeight + nodeHeight / 2,
+        };
+      });
+      maxRows = Math.max(maxRows, columns[col].length);
+    });
+
+    const svgWidth = marginX * 2 + colKeys.length * colWidth;
+    const svgHeight = topPadding + maxRows * rowHeight + 40;
+
+    // Group by the UNORDERED node pair, not by direction — a forward edge
+    // and the back-edge that reverses it connect the same two nodes and
+    // have to share the same offset band, or their labels collide (found by
+    // actually rendering this and looking, not by inspection).
+    const groups = {};
+    const selfLoops = {};
+    workflow.transitions.forEach((t) => {
+      if (t.from === t.to) {
+        (selfLoops[t.from] = selfLoops[t.from] || []).push(t);
+      } else {
+        const key = [t.from, t.to].slice().sort().join('|');
+        (groups[key] = groups[key] || []).push(t);
       }
-      html += '</div>';
+    });
+
+    // Role and action stack as two short lines rather than one long joined
+    // string — real action labels ("Document Verifier: Verify Document")
+    // are wide enough at any readable font size to overlap neighboring
+    // nodes if kept on one line.
+    function edgeLabel(x, y, role, action, color) {
+      let out = '';
+      if (role) out += '<text x="' + x + '" y="' + (y - 4) + '" font-size="10" text-anchor="middle" fill="' + color + '">' + role.replace(/</g, '&lt;') + '</text>';
+      if (action) out += '<text x="' + x + '" y="' + (y + 9) + '" font-size="10" text-anchor="middle" fill="' + color + '">' + action.replace(/</g, '&lt;') + '</text>';
+      if (!role && !action) out += '<text x="' + x + '" y="' + (y + 3) + '" font-size="10" text-anchor="middle" fill="' + color + '">(no role/action)</text>';
+      return out;
     }
-    html += '</div>';
+
+    let edgesSvg = '';
+
+    Object.keys(selfLoops).forEach((label) => {
+      const from = positions[label];
+      if (!from) return;
+      selfLoops[label].forEach((t, i) => {
+        const stroke = '#a55';
+        const topY = from.cy - nodeHeight / 2;
+        const loopTop = topY - 45 - i * 40;
+        const x1 = from.cx - 18, x2 = from.cx + 18;
+        const d = 'M ' + x1 + ' ' + topY + ' C ' + (x1 - 10) + ' ' + loopTop + ', ' + (x2 + 10) + ' ' + loopTop + ', ' + x2 + ' ' + topY;
+        edgesSvg += '<path d="' + d + '" fill="none" stroke="' + stroke + '" stroke-width="1.5" marker-end="url(#arrowBack)" />';
+        edgesSvg += edgeLabel(from.cx, loopTop - 12, t.role, t.action, stroke);
+      });
+    });
+
+    Object.keys(groups).forEach((key) => {
+      const group = groups[key];
+      const n = group.length;
+      // One canonical direction per node PAIR (alphabetical a->b), shared by
+      // every edge in the group regardless of which way it actually points —
+      // otherwise a reversed-direction edge flips the perpendicular's sign
+      // and lands its offset on the same physical side as a same-magnitude
+      // forward edge instead of the opposite one.
+      const pairNodes = key.split('|');
+      const a = positions[pairNodes[0]], b = positions[pairNodes[1]];
+      if (!a || !b) return;
+      const pdx = b.cx - a.cx, pdy = b.cy - a.cy;
+      const plen = Math.sqrt(pdx * pdx + pdy * pdy) || 1;
+      const nx = -pdy / plen, ny = pdx / plen;
+
+      group.forEach((t, i) => {
+        const from = positions[t.from];
+        const to = positions[t.to];
+        if (!from || !to) return;
+        const isBackEdge = distance[t.to] <= distance[t.from];
+        const stroke = isBackEdge ? '#a55' : '#333';
+        const markerId = isBackEdge ? 'arrowBack' : 'arrowFwd';
+
+        // Always draw via the same quadratic-curve formula, even when
+        // offset is 0 (a Q curve with its control point on the straight
+        // line is visually just a straight line) — using a separate
+        // "straight line" special case here made that slot's label land
+        // much closer to its neighbor's than the offset spacing implied,
+        // since the two branches nudged the label differently.
+        const offset = n > 1 ? (i - (n - 1) / 2) * 60 : 0;
+        const p1 = rectBoundaryPoint(from.cx, from.cy, nodeWidth, nodeHeight, to.cx, to.cy);
+        const p2 = rectBoundaryPoint(to.cx, to.cy, nodeWidth, nodeHeight, from.cx, from.cy);
+        const mx = (p1.x + p2.x) / 2, my = (p1.y + p2.y) / 2;
+        const cx = mx + nx * offset, cy = my + ny * offset;
+        edgesSvg += '<path d="M ' + p1.x + ' ' + p1.y + ' Q ' + cx + ' ' + cy + ' ' + p2.x + ' ' + p2.y +
+          '" fill="none" stroke="' + stroke + '" stroke-width="1.5" marker-end="url(#' + markerId + ')" />';
+        edgesSvg += edgeLabel(cx, cy + (offset >= 0 ? 16 : -16), t.role, t.action, stroke);
+      });
+    });
+
+    let nodesSvg = '';
+    workflow.states.forEach((s) => {
+      const pos = positions[s.label];
+      if (!pos) return;
+      const isStart = s.label === startLabel;
+      const isTerminal = !workflow.transitions.some((t) => t.from === s.label);
+      const fill = isStart ? '#bde0f0' : '#fafafa';
+      const stroke = isTerminal ? '#2a9d5c' : '#333';
+      nodesSvg += '<rect x="' + (pos.cx - nodeWidth / 2) + '" y="' + (pos.cy - nodeHeight / 2) +
+        '" width="' + nodeWidth + '" height="' + nodeHeight + '" rx="6" fill="' + fill + '" stroke="' + stroke + '" stroke-width="2" />';
+      nodesSvg += '<text x="' + pos.cx + '" y="' + (pos.cy + 4) + '" font-size="13" text-anchor="middle" font-weight="bold">' +
+        s.label.replace(/</g, '&lt;') + '</text>';
+    });
+
+    html += '<div style="overflow-x:auto; border:1px solid #ccc;">';
+    html += '<svg width="' + svgWidth + '" height="' + svgHeight + '" style="display:block;">';
+    html += '<defs>' +
+      '<marker id="arrowFwd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#333"/></marker>' +
+      '<marker id="arrowBack" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#a55"/></marker>' +
+      '</defs>';
+    html += edgesSvg + nodesSvg;
+    html += '</svg></div>';
   }
   if (workflow.slaDays != null) {
     html += '<p style="margin-top:12px;"><strong>SLA:</strong> ' + workflow.slaDays + ' days</p>';

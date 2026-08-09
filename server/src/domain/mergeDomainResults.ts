@@ -1,6 +1,6 @@
 import type { ApplicationDefinition } from '../types/applicationDefinition.js'
 import type { DomainAgentResult } from '../llm/domainAgents.js'
-import { enforceMandatoryDefaults } from './mandatoryDefaults.js'
+import { enforceMandatoryDefaults, dedupeSectionsByKind } from './mandatoryDefaults.js'
 
 export interface MergedTurnResult {
   reply: string
@@ -24,6 +24,7 @@ export function mergeDomainResults(
     definition = result.applyTo(definition)
   }
   definition = enforceMandatoryDefaults(definition)
+  definition = dedupeSectionsByKind(definition)
 
   const reply = results.map((r) => r.reply).join('\n\n')
   const clarifyingQuestion = results.map((r) => r.clarifyingQuestion).find((q): q is string => q !== null) ?? null

@@ -27,7 +27,10 @@ export const RegistryFieldTypeSchema = z.enum([
   'checkbox',
   'file',
   'toggle',
+  'location',
 ])
+
+export const RegistrySectionKindSchema = z.enum(['custom', 'address', 'applicant'])
 
 // fieldSource is intentionally NOT here — the model never decides this.
 // 'mandatory'/'boundary' fields are recognized elsewhere (they already exist in
@@ -40,6 +43,7 @@ export const RegistryFieldSchema = z.object({
   validationNotes: z.string().nullable(),
   dropdownOptions: z.array(z.string()).nullable(),
   optionsSource: z.string().nullable(),
+  pullFromDatabase: z.boolean().nullable(),
 })
 
 export const RegistrySubsectionSchema = z.object({
@@ -49,6 +53,11 @@ export const RegistrySubsectionSchema = z.object({
 
 export const RegistrySectionSchema = z.object({
   title: z.string(),
+  // Unlike fieldSource/system, kind IS something the model decides — it's a
+  // content judgment (does this read like an address section, an applicant
+  // section, or something bespoke), the same kind of call it already makes
+  // for individual field types.
+  kind: RegistrySectionKindSchema.nullable(),
   conditional: z.boolean().nullable(),
   fields: z.array(RegistryFieldSchema).nullable(),
   subsections: z.array(RegistrySubsectionSchema).nullable(),

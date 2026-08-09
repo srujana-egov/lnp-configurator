@@ -16,6 +16,7 @@ function buildMandatoryApplicantDetailsSection(): RegistrySection {
   return {
     id: freshId(),
     title: MANDATORY_APPLICANT_DETAILS_TITLE,
+    kind: 'applicant',
     system: true,
     fields: [
       { id: freshId(), label: 'Full Name', type: 'text', required: true, validationNotes: 'Min 3 characters', fieldSource: 'mandatory' },
@@ -56,4 +57,23 @@ export function enforceMandatoryDefaults(definition: ApplicationDefinition): App
       sections: [buildMandatoryApplicantDetailsSection(), ...definition.registry.sections],
     },
   }
+}
+
+// The discontinued form builder enforced 'address'/'applicant' as singleton
+// section kinds (greying the option out once added) — a real guardrail our
+// own extraction has no equivalent of yet. Keeps the first occurrence of
+// each non-custom kind and drops any later duplicate, rather than silently
+// allowing two "Address"-kind sections to coexist.
+export function dedupeSectionsByKind(definition: ApplicationDefinition): ApplicationDefinition {
+  const seenKinds = new Set<string>()
+  const sections = definition.registry.sections.filter((s) => {
+    if (!s.kind || s.kind === 'custom') return true
+    if (seenKinds.has(s.kind)) return false
+    seenKinds.add(s.kind)
+    return true
+  })
+  if (sections.length === definition.registry.sections.length) {
+    return definition
+  }
+  return { ...definition, registry: { ...definition.registry, sections } }
 }

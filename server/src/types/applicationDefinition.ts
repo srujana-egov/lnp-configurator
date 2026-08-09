@@ -35,6 +35,11 @@ export type RegistryFieldType =
   | 'checkbox'
   | 'file'
   | 'toggle'
+  // Real, evidenced gap: a separate (now-discontinued) DIGIT registry-schema
+  // form builder had a "Select Location on Map" field — a geolocation
+  // coordinate picker, not just a free-text address. Added here as its own
+  // type rather than folded into 'text'.
+  | 'location'
 
 export type RegistryFieldSource = 'mandatory' | 'recommended' | 'custom' | 'boundary'
 
@@ -52,6 +57,12 @@ export interface RegistryField {
   // to Sprint 2); becomes a real typed reference once that domain exists.
   dropdownOptions?: string[]
   optionsSource?: string
+  // Distinct from optionsSource: the discontinued form builder had a "Pull
+  // values from Database" toggle, a different mechanism from a named
+  // domain reference — this is deliberately just a boolean flag for now,
+  // not a full table/field reference, since that's all the real evidence
+  // (a toggle, nothing more) actually showed.
+  pullFromDatabase?: boolean
   source?: string
   // 'boundary' is never emitted by extraction — only ever recognized if already present.
   fieldSource: RegistryFieldSource
@@ -62,9 +73,21 @@ export interface RegistrySubsection {
   fields: RegistryField[]
 }
 
+// The discontinued form builder treated Address/Applicant/Document as fixed,
+// singleton section KINDS (each greys out as "already added" once used) —
+// distinct from an arbitrary custom section. Our sections previously only
+// had a free-text title with no way to recognize "this fundamentally is an
+// Address-kind section." Deliberately not modeling 'document' as a section
+// kind here: our real target evidence (the Bissau tenant's actual screen)
+// keeps document uploads in registry.documents, not as section fields —
+// a conscious divergence from the discontinued tool's choice, not an
+// oversight.
+export type RegistrySectionKind = 'custom' | 'address' | 'applicant'
+
 export interface RegistrySection {
   id: string
   title: string
+  kind?: RegistrySectionKind
   system?: boolean
   conditional?: boolean
   fields?: RegistryField[]

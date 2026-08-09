@@ -15,6 +15,11 @@ needs no entry here. Grows over time as new non-obvious rules get discovered.
 - Document-attachment *lists* (e.g. "Attached Documents: Copy of ID, Copy of
   NIF, Proof of deposit") are not more form fields — they belong in
   `registry.documents`, never `registry.sections`.
+- A field asking for a site/location with map coordinates (not just a
+  written address) should be `type: 'location'`, not `text`.
+- If a dropdown's options are described as coming from a lookup or database
+  rather than a fixed list, set `pullFromDatabase: true` instead of
+  fabricating a hardcoded option list.
 
 ## Input relevance
 
