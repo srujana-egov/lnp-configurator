@@ -151,15 +151,15 @@ function buildBusinessLicenseTemplate(): ApplicationDefinition {
   // transcribed as-is rather than silently fixed. This is exactly the kind
   // of thing the (not yet built) Reference Resolver exists to catch.
   const transitions: WorkflowTransition[] = [
-    { from: 'Start', to: 'Pending Document Verification', role: 'Citizen', action: 'Apply' },
-    { from: 'Start', to: 'Pending Document Verification', role: 'Counter Employee', action: 'Assisted Apply' },
-    { from: 'Pending Document Verification', to: 'Pending Payment', role: 'Document Verifier', action: 'Verify Document' },
-    { from: 'Pending Document Verification', to: 'Start', role: 'Document Verifier', action: 'Send Back' },
-    { from: 'Pending Field Inspection', to: 'Pending Approval', role: 'Field Inspector', action: 'Inspection Passed' },
-    { from: 'Pending Field Inspection', to: 'Pending Field Inspection', role: 'Field Inspector', action: 'Inspection Failed' },
-    { from: 'Pending Approval', to: 'End', role: 'Approver' },
-    { from: 'Pending Approval', to: 'Pending Document Verification', role: 'Approver', action: 'Reject' },
-    { from: 'Pending Payment', to: 'Pending Field Inspection', role: 'Approver', action: 'Reject' },
+    { from: 'Start', to: 'Pending Document Verification', roles: ['Citizen'], action: 'Apply' },
+    { from: 'Start', to: 'Pending Document Verification', roles: ['Counter Employee'], action: 'Assisted Apply' },
+    { from: 'Pending Document Verification', to: 'Pending Payment', roles: ['Document Verifier'], action: 'Verify Document' },
+    { from: 'Pending Document Verification', to: 'Start', roles: ['Document Verifier'], action: 'Send Back' },
+    { from: 'Pending Field Inspection', to: 'Pending Approval', roles: ['Field Inspector'], action: 'Inspection Passed' },
+    { from: 'Pending Field Inspection', to: 'Pending Field Inspection', roles: ['Field Inspector'], action: 'Inspection Failed' },
+    { from: 'Pending Approval', to: 'End', roles: ['Approver'] },
+    { from: 'Pending Approval', to: 'Pending Document Verification', roles: ['Approver'], action: 'Reject' },
+    { from: 'Pending Payment', to: 'Pending Field Inspection', roles: ['Approver'], action: 'Reject' },
   ]
 
   return {

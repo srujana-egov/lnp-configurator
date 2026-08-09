@@ -89,12 +89,14 @@ export const RegistrySchema = z.object({
 export const WorkflowStateSchema = z.object({
   label: z.string(),
   assignedRole: z.string().nullable(),
+  slaHours: z.number().nonnegative().nullable(),
+  docUploadRequired: z.boolean().nullable(),
 })
 
 export const WorkflowTransitionSchema = z.object({
   from: z.string(),
   to: z.string(),
-  role: z.string().nullable(),
+  roles: z.array(z.string()).nullable(),
   action: z.string().nullable(),
 })
 

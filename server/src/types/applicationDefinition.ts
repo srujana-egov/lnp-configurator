@@ -121,18 +121,27 @@ export interface WorkflowState {
   id: string
   label: string
   assignedRole?: string
+  // Real evidence (DIGIT Studio's Workflow Management tool, a different
+  // real module than the Bissau tenant's screen): SLA is a per-state
+  // setting there ("SLA Timer (Hours)"), not only the one workflow-level
+  // number below. Both are kept — different real systems modeled this at
+  // different granularities, and a per-state override doesn't conflict
+  // with an overall target.
+  slaHours?: number
+  docUploadRequired?: boolean
 }
 
 export interface WorkflowTransition {
   from: string
   to: string
-  // Real product data (the real Bissau tenant's Workflow screen) showed role
-  // and action assigned per-transition, not per-state — the same "from"
-  // state can have multiple rows with different roles/actions (e.g. Start
-  // has both a Citizen/Apply row and a Counter Employee/Assisted Apply
-  // row). WorkflowState.assignedRole predates this finding and is now the
-  // less accurate of the two; kept for now, not removed.
-  role?: string
+  // Real product data showed BOTH shapes for this: the Bissau tenant's
+  // Workflow screen showed one role per action row, but DIGIT Studio's own
+  // Workflow Management tool's real JSON export (seen directly in an "Edit
+  // service configuration" panel) showed `roles` as an array — more than
+  // one role can perform the same action. Generalized to an array, which
+  // still represents the single-role case as one element — not a conflict,
+  // a widening.
+  roles?: string[]
   action?: string
 }
 

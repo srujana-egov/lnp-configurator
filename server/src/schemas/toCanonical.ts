@@ -105,19 +105,20 @@ export function workflowFromLlm(llm: LlmWorkflow): Workflow {
     id: freshId(),
     label: s.label,
     assignedRole: undef(s.assignedRole),
+    slaHours: undef(s.slaHours),
+    docUploadRequired: undef(s.docUploadRequired),
   }))
+  const transitionFromLlm = (t: LlmWorkflow['transitions'][number]) => ({
+    from: t.from,
+    to: t.to,
+    roles: undef(t.roles) ?? undefined,
+    action: undef(t.action),
+  })
   return {
     states,
-    transitions: llm.transitions.map((t) => ({
-      from: t.from,
-      to: t.to,
-      role: undef(t.role),
-      action: undef(t.action),
-    })),
+    transitions: llm.transitions.map(transitionFromLlm),
     slaDays: undef(llm.slaDays),
-    renewalTransitions: llm.renewalTransitions
-      ? llm.renewalTransitions.map((t) => ({ from: t.from, to: t.to, role: undef(t.role), action: undef(t.action) }))
-      : undefined,
+    renewalTransitions: llm.renewalTransitions ? llm.renewalTransitions.map(transitionFromLlm) : undefined,
   }
 }
 
@@ -212,9 +213,14 @@ export function registryToLlm(registry: Registry): LlmRegistry {
 
 export function workflowToLlm(workflow: Workflow): LlmWorkflow {
   const transitionsToLlm = (transitions: typeof workflow.transitions) =>
-    transitions.map((t) => ({ from: t.from, to: t.to, role: t.role ?? null, action: t.action ?? null }))
+    transitions.map((t) => ({ from: t.from, to: t.to, roles: t.roles ?? null, action: t.action ?? null }))
   return {
-    states: workflow.states.map((s) => ({ label: s.label, assignedRole: s.assignedRole ?? null })),
+    states: workflow.states.map((s) => ({
+      label: s.label,
+      assignedRole: s.assignedRole ?? null,
+      slaHours: s.slaHours ?? null,
+      docUploadRequired: s.docUploadRequired ?? null,
+    })),
     transitions: transitionsToLlm(workflow.transitions),
     slaDays: workflow.slaDays ?? null,
     renewalTransitions: workflow.renewalTransitions ? transitionsToLlm(workflow.renewalTransitions) : null,
