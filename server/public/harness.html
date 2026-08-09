@@ -592,6 +592,22 @@ function renderRoles(definition) {
 // Studio's own "My Checklists" list + one-at-a-time detail view).
 let checklistPageIndex = 0;
 
+// Mirrors fieldInput() on the Form tab — a real control per item type,
+// not a text description of one. Radio/checkbox items with real options
+// render as an actual group of radio buttons / checkboxes, one per option.
+function checklistItemInput(item, groupName) {
+  if ((item.type === 'radio' || item.type === 'checkbox') && item.options && item.options.length) {
+    const inputType = item.type === 'radio' ? 'radio' : 'checkbox';
+    return item.options.map((o) =>
+      '<label style="margin-right:14px; font-weight:normal;"><input type="' + inputType + '"' +
+      (inputType === 'radio' ? ' name="' + groupName + '"' : '') + ' /> ' + o.replace(/</g, '&lt;') + '</label>'
+    ).join('');
+  }
+  if (item.type === 'checkbox') return '<label style="font-weight:normal;"><input type="checkbox" /> Yes</label>';
+  if (item.type === 'file') return '<input type="file" />';
+  return '<input type="text" style="width:100%;" />';
+}
+
 function renderChecklists(checklists) {
   if (checklists.length === 0) return '<p><em>Nothing extracted yet — real tenants often leave this empty.</em></p>';
   checklistPageIndex = Math.max(0, Math.min(checklistPageIndex, checklists.length - 1));
@@ -610,18 +626,19 @@ function renderChecklists(checklists) {
   html += '<div style="font-size:11px; color:#6b7280; text-transform:uppercase; letter-spacing:0.03em;">For stage: ' + c.stage.replace(/</g, '&lt;') + ' [' + c.module + ']</div>';
   html += '<div style="font-weight:600; font-size:14px; margin-top:2px;">' + c.name.replace(/</g, '&lt;') + '</div>';
   if (c.helpText) html += '<div style="font-size:12px; color:#6b7280; margin-top:2px;">' + c.helpText.replace(/</g, '&lt;') + '</div>';
-  html += '<ul style="margin-top:8px;">';
-  for (const item of c.items) {
-    html += '<li>' + item.item.replace(/</g, '&lt;') + ' (' + item.type + ')' + (item.required ? ' *' : '');
-    if (item.options && item.options.length) {
-      html += '<br/><small style="color:#666;">options: ' + item.options.join(', ').replace(/</g, '&lt;') + '</small>';
-    }
+  html += '<div style="margin-top:8px;">';
+  c.items.forEach((item, idx) => {
+    html += '<div style="margin-bottom:12px;">';
+    html += '<label style="display:block; font-weight:600; font-size:13px; margin-bottom:4px;">' +
+      item.item.replace(/</g, '&lt;') + (item.required ? ' *' : '') +
+      ' <em style="font-weight:normal; color:#666; font-size:11px;">[' + item.type + ']</em></label>';
+    html += checklistItemInput(item, 'checklist_item_' + idx);
     if (item.linkedChecklistName) {
-      html += '<br/><small style="color:#7c6ff0;">&rarr; links to checklist: ' + item.linkedChecklistName.replace(/</g, '&lt;') + '</small>';
+      html += '<div style="margin-top:4px;"><small style="color:#7c6ff0;">&rarr; links to checklist: ' + item.linkedChecklistName.replace(/</g, '&lt;') + '</small></div>';
     }
-    html += '</li>';
-  }
-  html += '</ul></div>';
+    html += '</div>';
+  });
+  html += '</div></div>';
   return html;
 }
 
