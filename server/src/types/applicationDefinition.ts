@@ -162,11 +162,24 @@ export interface ChecklistItem {
   item: string
   type: ChecklistItemType
   required: boolean
+  // Real gap (DIGIT Studio's own Checklist Dashboard): a radio/checkbox
+  // item needs its actual answer choices (e.g. Yes/No, Images/Video/Other)
+  // — same concept as RegistryField.dropdownOptions, just for a checklist
+  // item instead of a form field.
+  options?: string[]
+  // "Link Nested Checklist" in the real tool — a specific answer can route
+  // to a whole separate checklist. Modeled as a shallow named reference
+  // only, not a resolved/recursive structure — same conservative choice
+  // already made for conditional/repeating registry fields: represent
+  // that the relationship exists, don't build recursive extraction logic
+  // for it in Phase 1.
+  linkedChecklistName?: string
 }
 
 export interface ChecklistDefinition {
   id: string
   name: string
+  helpText?: string
   module: 'issuance' | 'renewal'
   stage: string
   items: ChecklistItem[]

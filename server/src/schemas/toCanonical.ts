@@ -126,9 +126,16 @@ export function checklistsFromLlm(llm: LlmChecklists): ChecklistDefinition[] {
   return llm.map((c) => ({
     id: freshId(),
     name: c.name,
+    helpText: undef(c.helpText),
     module: c.module,
     stage: c.stage,
-    items: c.items,
+    items: c.items.map((it) => ({
+      item: it.item,
+      type: it.type,
+      required: it.required,
+      options: undef(it.options) ?? undefined,
+      linkedChecklistName: undef(it.linkedChecklistName),
+    })),
   }))
 }
 
@@ -228,7 +235,19 @@ export function workflowToLlm(workflow: Workflow): LlmWorkflow {
 }
 
 export function checklistsToLlm(checklists: ChecklistDefinition[]): LlmChecklists {
-  return checklists.map((c) => ({ name: c.name, module: c.module, stage: c.stage, items: c.items }))
+  return checklists.map((c) => ({
+    name: c.name,
+    helpText: c.helpText ?? null,
+    module: c.module,
+    stage: c.stage,
+    items: c.items.map((it) => ({
+      item: it.item,
+      type: it.type,
+      required: it.required,
+      options: it.options ?? null,
+      linkedChecklistName: it.linkedChecklistName ?? null,
+    })),
+  }))
 }
 
 export function feesToLlm(fees: FeeConfig): LlmFees {

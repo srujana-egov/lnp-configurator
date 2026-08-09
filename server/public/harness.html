@@ -532,17 +532,51 @@ function renderRoles(roles) {
   return '<ul>' + roles.map((r) => '<li>' + r + '</li>').join('') + '</ul>';
 }
 
+// One checklist at a time, with the stage it belongs to as the prominent
+// header (feature ask: "put on top for which state") — a flat stacked list
+// of every checklist at once got unwieldy once there was more than one, so
+// multiple checklists page through with Prev/Next instead (mirrors DIGIT
+// Studio's own "My Checklists" list + one-at-a-time detail view).
+let checklistPageIndex = 0;
+
 function renderChecklists(checklists) {
   if (checklists.length === 0) return '<p><em>Nothing extracted yet — real tenants often leave this empty.</em></p>';
+  checklistPageIndex = Math.max(0, Math.min(checklistPageIndex, checklists.length - 1));
+  const c = checklists[checklistPageIndex];
+
   let html = '';
-  for (const c of checklists) {
-    html += '<fieldset><legend>' + c.name + ' [' + c.module + ', stage: ' + c.stage + ']</legend><ul>';
-    for (const item of c.items) {
-      html += '<li>' + item.item + ' (' + item.type + ')' + (item.required ? ' *' : '') + '</li>';
-    }
-    html += '</ul></fieldset>';
+  if (checklists.length > 1) {
+    html += '<div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">' +
+      '<button type="button" id="checklistPrevBtn"' + (checklistPageIndex === 0 ? ' disabled' : '') + '>&larr; Prev</button>' +
+      '<span style="font-size:12px; color:#6b7280;">' + (checklistPageIndex + 1) + ' of ' + checklists.length + '</span>' +
+      '<button type="button" id="checklistNextBtn"' + (checklistPageIndex === checklists.length - 1 ? ' disabled' : '') + '>Next &rarr;</button>' +
+      '</div>';
   }
+
+  html += '<div style="border:1px solid #e5e7eb; border-radius:6px; padding:10px; background:#fafbfc;">';
+  html += '<div style="font-size:11px; color:#6b7280; text-transform:uppercase; letter-spacing:0.03em;">For stage: ' + c.stage.replace(/</g, '&lt;') + ' [' + c.module + ']</div>';
+  html += '<div style="font-weight:600; font-size:14px; margin-top:2px;">' + c.name.replace(/</g, '&lt;') + '</div>';
+  if (c.helpText) html += '<div style="font-size:12px; color:#6b7280; margin-top:2px;">' + c.helpText.replace(/</g, '&lt;') + '</div>';
+  html += '<ul style="margin-top:8px;">';
+  for (const item of c.items) {
+    html += '<li>' + item.item.replace(/</g, '&lt;') + ' (' + item.type + ')' + (item.required ? ' *' : '');
+    if (item.options && item.options.length) {
+      html += '<br/><small style="color:#666;">options: ' + item.options.join(', ').replace(/</g, '&lt;') + '</small>';
+    }
+    if (item.linkedChecklistName) {
+      html += '<br/><small style="color:#7c6ff0;">&rarr; links to checklist: ' + item.linkedChecklistName.replace(/</g, '&lt;') + '</small>';
+    }
+    html += '</li>';
+  }
+  html += '</ul></div>';
   return html;
+}
+
+function wireChecklistPagination(container, checklists) {
+  const prevBtn = container.querySelector('#checklistPrevBtn');
+  const nextBtn = container.querySelector('#checklistNextBtn');
+  if (prevBtn) prevBtn.onclick = () => { checklistPageIndex -= 1; renderActivePanel(); };
+  if (nextBtn) nextBtn.onclick = () => { checklistPageIndex += 1; renderActivePanel(); };
 }
 
 function renderFees(fees) {
@@ -628,10 +662,14 @@ function renderActivePanel() {
   if (activeTab === 'workflow') {
     wireWorkflowBadges(domainPanel, currentDefinition.workflow, currentDefinition);
   }
+  if (activeTab === 'checklists') {
+    wireChecklistPagination(domainPanel, currentDefinition.checklists);
+  }
 }
 
 function renderDefinition(definition) {
   currentDefinition = definition;
+  checklistPageIndex = 0;
   renderActivePanel();
 }
 

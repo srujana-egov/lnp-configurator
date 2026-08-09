@@ -113,10 +113,13 @@ export const ChecklistItemSchema = z.object({
   item: z.string(),
   type: ChecklistItemTypeSchema,
   required: z.boolean(),
+  options: z.array(z.string()).nullable(),
+  linkedChecklistName: z.string().nullable(),
 })
 
 export const ChecklistDefinitionSchema = z.object({
   name: z.string(),
+  helpText: z.string().nullable(),
   module: z.enum(['issuance', 'renewal']),
   stage: z.string(),
   items: z.array(ChecklistItemSchema),
