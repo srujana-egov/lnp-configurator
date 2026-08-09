@@ -653,12 +653,67 @@ function renderFees(fees) {
   return html;
 }
 
+// {APP_ID}-style template placeholders get highlighted, mirroring the real
+// product's own "Personalization Variables" chip picker — makes clear
+// which parts of the message are dynamic, not just plain text.
+function highlightPlaceholders(text) {
+  return text.replace(/</g, '&lt;').replace(/\{[^}]+\}/g, (m) =>
+    '<span style="background:#fef3c7; color:#92400e; border-radius:3px; padding:0 3px;">' + m + '</span>'
+  );
+}
+
+function renderSmsPreview(r) {
+  const text = r.message ? highlightPlaceholders(r.message) : '<em>(no message set)</em>';
+  return '<div style="display:flex; align-items:flex-end; gap:6px;">' +
+    '<div style="font-size:16px;">\u{1F4F1}</div>' +
+    '<div style="background:#e5f5e0; border-radius:14px; padding:8px 12px; max-width:280px; font-size:13px;">' + text + '</div>' +
+    '</div>' +
+    '<div style="font-size:10px; color:#9ca3af; margin-left:26px; margin-top:2px;">SMS &middot; ' + (r.message || '').length + '/160 chars</div>';
+}
+
+function renderWhatsappPreview(r) {
+  const text = r.message ? highlightPlaceholders(r.message) : '<em>(no message set)</em>';
+  return '<div style="display:flex; align-items:flex-end; gap:6px;">' +
+    '<div style="font-size:16px;">\u{1F4AC}</div>' +
+    '<div style="background:#dcf8c6; border-radius:8px; padding:8px 12px; max-width:280px; font-size:13px;">' + text + '</div>' +
+    '</div>';
+}
+
+function renderUssdPreview(r) {
+  const text = r.message ? highlightPlaceholders(r.message) : '<em>(no message set)</em>';
+  return '<div style="background:#111827; color:#4ade80; font-family:monospace; border-radius:6px; padding:10px; max-width:280px; font-size:12px; white-space:pre-wrap;">' + text + '</div>';
+}
+
+function renderEmailPreview(r) {
+  const subject = r.event.replace(/</g, '&lt;');
+  const body = r.message ? highlightPlaceholders(r.message) : '<em>(no message set)</em>';
+  return '<div style="border:1px solid #d1d5db; border-radius:8px; overflow:hidden; max-width:380px;">' +
+    '<div style="background:#f3f4f6; padding:6px 10px; font-size:11px; color:#6b7280; border-bottom:1px solid #e5e7eb;">✉️ Email &middot; To: ' + r.recipient.replace(/</g, '&lt;') + '</div>' +
+    '<div style="padding:10px;">' +
+    '<div style="font-weight:600; font-size:13px; margin-bottom:6px;">' + subject + '</div>' +
+    '<div style="font-size:12px; color:#374151;">' + body + '</div>' +
+    '</div></div>';
+}
+
+// Shows what the actual configured message would look like per channel —
+// an SMS/WhatsApp bubble, an email card, a USSD-style terminal box —
+// instead of a plain text row. Deliberately doesn't repeat which workflow
+// stage each one fires from; that's already covered by the Workflow tab's
+// notification badges (click to view).
 function renderNotifications(notifications) {
   if (notifications.rules.length === 0) return '<p><em>Nothing extracted yet.</em></p>';
-  return '<ul>' + notifications.rules.map((r) =>
-    '<li>' + r.event + ' &rarr; ' + r.channel + ' &rarr; ' + r.recipient +
-    (r.message ? '<br/><small style="color:#666;">' + r.message.replace(/</g, '&lt;') + '</small>' : '') + '</li>'
-  ).join('') + '</ul>';
+  return notifications.rules.map((r) => {
+    const channel = (r.channel || '').toLowerCase();
+    let preview;
+    if (channel.includes('sms')) preview = renderSmsPreview(r);
+    else if (channel.includes('whatsapp')) preview = renderWhatsappPreview(r);
+    else if (channel.includes('ussd')) preview = renderUssdPreview(r);
+    else if (channel.includes('email')) preview = renderEmailPreview(r);
+    else preview = '<div style="border:1px solid #e5e7eb; border-radius:6px; padding:8px; font-size:12px;">' + (r.message ? highlightPlaceholders(r.message) : '<em>(no message set)</em>') + '</div>';
+    return '<div style="margin-bottom:16px;">' +
+      '<div style="font-size:11px; color:#6b7280; margin-bottom:4px;">' + r.event.replace(/</g, '&lt;') + ' &middot; ' + r.channel.replace(/</g, '&lt;') + ' &middot; to ' + r.recipient.replace(/</g, '&lt;') + '</div>' +
+      preview + '</div>';
+  }).join('');
 }
 
 function renderOtherInformation(otherInformation) {
