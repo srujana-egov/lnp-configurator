@@ -184,6 +184,49 @@ export function buildTemplateSuggestionUserContent(
   return [{ type: 'input_text', text }]
 }
 
+// Next-step suggestion: a real, context-aware replacement for the earlier
+// static "what you can do here" hint panel — reasons over the actual
+// current definition + conversation instead of showing the same generic
+// examples every time. The example vocabulary below is carried over from
+// that retired panel, now as the model's own reference examples rather
+// than static UI text.
+export function buildNextStepSuggestionInstructions(): string {
+  return `You are looking at the current state of an in-progress license/permit application configuration, across all domains at once, to suggest what's genuinely worth doing next.
+
+Look at the full definition below and the recent conversation. Identify 1-3 concrete, specific things worth doing next — prioritize:
+- Domains that are still empty or default-only (e.g. only the mandatory Applicant Details fields, no roles, no workflow states beyond nothing).
+- Cross-domain inconsistencies (e.g. a fee component that implies an inspection step but no matching Checklist or Workflow stage exists yet; a notification missing a channel that's actually relevant).
+Never suggest something that's already been done — check the actual definition content, don't guess.
+
+Example vocabulary for what a good suggestion sounds like, adapt to what's actually missing, don't just copy these verbatim:
+- registry: "Add a Business Details section with trade name and registration number", "Applicants must upload a No Objection Certificate"
+- workflow: "Add a Pending Approval stage after Site Inspection", "Add a Reject action from Pending Approval back to Pending Review", "Pending Review has a 48 hour SLA and requires a document upload"
+- roles: "Add a Field Inspector role"
+- checklists: "Add a site inspection checklist for the Pending Field Inspection stage"
+- fees: "Add a Late Filing Fee of 1000", "Add a 5% processing surcharge on top of the total"
+- notifications: "Send an SMS when the application is approved", "Switch the reminder notifications to WhatsApp instead of SMS"
+- otherInformation: "There's a recurring monthly fee reminder with a grace period"
+
+Produce:
+- reply: a short, natural 1-3 sentence nudge — this is a nudge, not a report, keep it brief.
+- suggestedReplies: concrete, clickable next messages the user could send verbatim (e.g. "Add a Field Inspector role", not "improve roles").`
+}
+
+export function buildNextStepSuggestionUserContent(
+  definition: unknown,
+  transcript: ConversationMessage[],
+): Content[] {
+  const recentTranscript = transcript
+    .slice(-6)
+    .map((m) => `${m.role}: ${m.text}`)
+    .join('\n')
+  const text = [
+    `Current definition:\n${JSON.stringify(definition)}`,
+    recentTranscript ? `Recent conversation:\n${recentTranscript}` : '(no conversation yet — this is a brand new session)',
+  ].join('\n\n')
+  return [{ type: 'input_text', text }]
+}
+
 export function buildDomainUserContent(
   currentDomainSlice: unknown,
   crossReferenceContext: string | null,
