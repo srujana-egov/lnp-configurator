@@ -20,14 +20,34 @@ sessionsRouter.get('/:sessionId', (req, res) => {
   res.json(session)
 })
 
-// Stubbed real matching (see templates/match.ts) — the point of this route
-// is the clickable, discoverable affordance itself (feedback #2), even
-// before the embedding-based matching behind it is real.
-sessionsRouter.post('/:sessionId/suggest-template', (req, res) => {
-  const session = getSession(req.params.sessionId)
-  if (!session) {
-    res.status(404).json({ error: 'Session not found' })
-    return
+// Stateless — the pre-session "dump screen" path (describe what you need,
+// get a real gap analysis back, before committing to a session at all).
+sessionsRouter.post('/suggest-template', async (req, res, next) => {
+  try {
+    const description = typeof req.body?.description === 'string' ? req.body.description.trim() : ''
+    if (!description) {
+      res.status(400).json({ error: 'Provide a description' })
+      return
+    }
+    const suggestion = await suggestTemplate({ description })
+    res.json({ suggestion })
+  } catch (err) {
+    next(err)
   }
-  res.json({ suggestion: suggestTemplate(session.definition) })
+})
+
+// In-session — real gap analysis against the current definition-so-far,
+// not the old fixed-0.75 stub.
+sessionsRouter.post('/:sessionId/suggest-template', async (req, res, next) => {
+  try {
+    const session = getSession(req.params.sessionId)
+    if (!session) {
+      res.status(404).json({ error: 'Session not found' })
+      return
+    }
+    const suggestion = await suggestTemplate({ definition: session.definition })
+    res.json({ suggestion })
+  } catch (err) {
+    next(err)
+  }
 })

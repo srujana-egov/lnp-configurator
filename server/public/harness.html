@@ -8,29 +8,51 @@
   <h1>AI Configurator — Sprint 2 harness</h1>
   <p><em>Deliberately unstyled. All 7 domains now get real routing + extraction via the router + domain-specialist architecture.</em></p>
 
-  <button id="newSessionBtn">New Session</button>
-  <select id="templateSelect"><option value="">— start from a template —</option></select>
-  <button id="startFromTemplateBtn">Start from Template</button>
-  <span id="sessionLabel"></span>
-
-  <div style="display: flex; gap: 24px; margin-top: 16px;">
-    <div style="flex: 1; min-width: 360px;">
-      <h2>Chat</h2>
-      <div id="chatLog" style="border: 1px solid #999; height: 400px; overflow-y: auto; padding: 8px;"></div>
-      <div id="chipRow" style="margin-top: 8px;"></div>
-      <form id="turnForm" style="margin-top: 8px;">
-        <textarea id="messageInput" rows="3" style="width: 100%;" placeholder="Type a message..."></textarea><br />
-        <input id="fileInput" type="file" multiple accept="application/pdf,image/png,image/jpeg" /><br />
-        <button type="submit" id="sendBtn">Send</button>
-      </form>
-      <button type="button" id="suggestTemplateBtn" style="margin-top: 8px;">Suggest a Template</button>
-      <pre id="statusArea" style="color: red;"></pre>
+  <!-- Dump screen: shown before a session exists. Either pick a template
+       directly, or describe what you need and get a real gap analysis back
+       before committing to a session at all. -->
+  <div id="startScreen">
+    <h2>Start</h2>
+    <div style="display: flex; gap: 32px; flex-wrap: wrap;">
+      <div>
+        <h3>Pick a template</h3>
+        <select id="templateSelect"><option value="">— choose —</option></select>
+        <button id="startFromTemplateBtn">Start from Template</button>
+      </div>
+      <div style="max-width: 420px;">
+        <h3>Or describe what you need</h3>
+        <textarea id="dumpDescription" rows="3" style="width: 100%;" placeholder="e.g. A business license application with a site inspection step and a flat fee..."></textarea><br />
+        <button type="button" id="suggestBeforeSessionBtn">Suggest a Template</button>
+        <div id="suggestionResult" style="margin-top: 8px;"></div>
+      </div>
     </div>
+    <p><button type="button" id="startBlankBtn">Start Blank (no template)</button></p>
+    <pre id="startStatusArea" style="color: red;"></pre>
+  </div>
 
-    <div style="flex: 1; min-width: 360px;">
-      <h2>Application Definition</h2>
-      <div id="domainTabs" style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px;"></div>
-      <div id="domainPanel"></div>
+  <div id="mainScreen" style="display: none;">
+    <button type="button" id="backToStartBtn">&larr; Back to Start</button>
+    <span id="sessionLabel"></span>
+
+    <div style="display: flex; gap: 24px; margin-top: 16px;">
+      <div style="flex: 1; min-width: 360px;">
+        <h2>Chat</h2>
+        <div id="chatLog" style="border: 1px solid #999; height: 400px; overflow-y: auto; padding: 8px;"></div>
+        <div id="chipRow" style="margin-top: 8px;"></div>
+        <form id="turnForm" style="margin-top: 8px;">
+          <textarea id="messageInput" rows="3" style="width: 100%;" placeholder="Type a message..."></textarea><br />
+          <input id="fileInput" type="file" multiple accept="application/pdf,image/png,image/jpeg" /><br />
+          <button type="submit" id="sendBtn">Send</button>
+        </form>
+        <button type="button" id="suggestTemplateBtn" style="margin-top: 8px;">Suggest a Template</button>
+        <pre id="statusArea" style="color: red;"></pre>
+      </div>
+
+      <div style="flex: 1; min-width: 360px;">
+        <h2>Application Definition</h2>
+        <div id="domainTabs" style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px;"></div>
+        <div id="domainPanel"></div>
+      </div>
     </div>
   </div>
 
@@ -435,8 +457,23 @@ function renderDefinition(definition) {
 async function loadTemplateOptions() {
   // No list endpoint yet (one seed template only, per Sprint 2 scope) — hardcode
   // the one real id rather than build a route for a single static option.
-  templateSelect.innerHTML = '<option value="">— start from a template —</option>' +
+  templateSelect.innerHTML = '<option value="">— choose —</option>' +
     '<option value="business-license-starter">Business License</option>';
+}
+
+function showStartScreen() {
+  document.getElementById('startScreen').style.display = '';
+  document.getElementById('mainScreen').style.display = 'none';
+  sessionId = null;
+  currentDefinition = null;
+  document.getElementById('dumpDescription').value = '';
+  document.getElementById('suggestionResult').innerHTML = '';
+  document.getElementById('startStatusArea').textContent = '';
+}
+
+function showMainScreen() {
+  document.getElementById('startScreen').style.display = 'none';
+  document.getElementById('mainScreen').style.display = '';
 }
 
 async function newSession(templateId) {
@@ -451,8 +488,54 @@ async function newSession(templateId) {
   chatLog.innerHTML = '';
   chipRow.innerHTML = '';
   statusArea.textContent = '';
+  showMainScreen();
   renderTabs();
   renderDefinition(session.definition);
+}
+
+// Renders the real gap-analysis result (matchPercent + reply + per-domain
+// notes) on the start screen, with a button to actually commit to a session
+// seeded from the suggested template.
+function renderSuggestion(suggestion) {
+  const el = document.getElementById('suggestionResult');
+  if (!suggestion) {
+    el.innerHTML = '<p><em>No suggestion available.</em></p>';
+    return;
+  }
+  let html = '<p><strong>' + suggestion.name + '</strong> — ' + suggestion.matchPercent + '% match</p>';
+  html += '<p>' + suggestion.reply.replace(/</g, '&lt;') + '</p>';
+  if (suggestion.domainNotes && suggestion.domainNotes.length > 0) {
+    html += '<ul>' + suggestion.domainNotes.map((n) =>
+      '<li><strong>' + n.domain + '</strong> [' + n.status + ']: ' + n.note.replace(/</g, '&lt;') + '</li>'
+    ).join('') + '</ul>';
+  }
+  html += '<button type="button" id="startWithSuggestedBtn">Start with this template</button>';
+  el.innerHTML = html;
+  document.getElementById('startWithSuggestedBtn').onclick = () => newSession(suggestion.id);
+}
+
+async function suggestBeforeSession() {
+  const description = document.getElementById('dumpDescription').value.trim();
+  const startStatusArea = document.getElementById('startStatusArea');
+  if (!description) {
+    startStatusArea.textContent = 'Describe what you need first.';
+    return;
+  }
+  startStatusArea.textContent = '';
+  document.getElementById('suggestionResult').innerHTML = '<p><em>Thinking...</em></p>';
+  const res = await fetch('/api/sessions/suggest-template', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ description }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    startStatusArea.textContent = 'Error ' + res.status + ': ' + (err.message || err.error);
+    document.getElementById('suggestionResult').innerHTML = '';
+    return;
+  }
+  const { suggestion } = await res.json();
+  renderSuggestion(suggestion);
 }
 
 async function sendTurn(message, files) {
@@ -480,28 +563,35 @@ async function sendTurn(message, files) {
   renderDefinition(result.definition);
 }
 
-async function suggestTemplate() {
+// In-session re-suggestion (mid-conversation) — same real gap analysis,
+// compared against the current definition-so-far instead of a fresh
+// description. Compact text summary here rather than the rich start-screen
+// breakdown UI, consistent with this harness's minimal-effort-elsewhere style.
+async function suggestTemplateInSession() {
   if (!sessionId) {
     statusArea.textContent = 'Start a session first.';
     return;
   }
+  statusArea.style.color = '#333';
+  statusArea.textContent = 'Thinking...';
   const res = await fetch('/api/sessions/' + sessionId + '/suggest-template', { method: 'POST' });
   const { suggestion } = await res.json();
-  statusArea.style.color = '#333';
   statusArea.textContent = suggestion
-    ? 'Suggested template: ' + suggestion.name + ' (' + suggestion.description + ', similarity ' + suggestion.similarity + ' — stubbed matching, Sprint 5 builds the real thing)'
+    ? suggestion.name + ' — ' + suggestion.matchPercent + '% match. ' + suggestion.reply
     : 'No template suggestion available.';
 }
 
-document.getElementById('newSessionBtn').onclick = () => newSession(undefined);
+document.getElementById('startBlankBtn').onclick = () => newSession(undefined);
+document.getElementById('backToStartBtn').onclick = showStartScreen;
 document.getElementById('startFromTemplateBtn').onclick = () => {
   if (!templateSelect.value) {
-    statusArea.textContent = 'Pick a template first.';
+    document.getElementById('startStatusArea').textContent = 'Pick a template first.';
     return;
   }
   newSession(templateSelect.value);
 };
-document.getElementById('suggestTemplateBtn').onclick = suggestTemplate;
+document.getElementById('suggestBeforeSessionBtn').onclick = suggestBeforeSession;
+document.getElementById('suggestTemplateBtn').onclick = suggestTemplateInSession;
 document.getElementById('turnForm').onsubmit = (e) => {
   e.preventDefault();
   const message = document.getElementById('messageInput').value.trim();
@@ -513,6 +603,7 @@ document.getElementById('turnForm').onsubmit = (e) => {
 
 loadTemplateOptions();
 renderTabs();
+showStartScreen();
 </script>
 </body>
 </html>

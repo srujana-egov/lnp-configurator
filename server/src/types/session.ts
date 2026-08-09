@@ -31,11 +31,22 @@ export interface ChatSession {
   context?: SessionContext
 }
 
+export interface TemplateSuggestionDomainNote {
+  domain: string
+  status: 'match' | 'tweak' | 'missing'
+  note: string
+}
+
+// matchPercent/domainNotes replaced the old fixed similarity stub — a real
+// per-domain gap analysis now, not a placeholder number. See
+// llm/templateSuggestion.ts.
 export interface TemplateSuggestion {
   id: string
   name: string
   description: string
-  similarity: number
+  matchPercent: number
+  reply: string
+  domainNotes: TemplateSuggestionDomainNote[]
 }
 
 export interface TurnResponse {

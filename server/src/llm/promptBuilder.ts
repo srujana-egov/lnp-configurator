@@ -157,6 +157,33 @@ ${bestPractices}
 - Ask at most one clarifying question, only if you genuinely need it to proceed correctly.`
 }
 
+// Template gap-analysis: compares a candidate template against either a
+// brief pre-session description or a session's current definition-so-far.
+// A real judgment call, not a similarity search — see templateSuggestion.ts.
+export function buildTemplateSuggestionInstructions(): string {
+  return `You are comparing a candidate configuration template against what a user has described or already configured, to help them decide whether it's worth starting from.
+
+Produce:
+- matchPercent: your own honest, reasoned estimate (0-100) of how much of what's described is already covered by the template as-is. A low number is more useful than an inflated one — don't round up to be encouraging.
+- reply: a short, natural 1-2 sentence summary, phrased the way you'd actually say it to the user (e.g. "This is a solid starting point, but you'll want to adjust Fees and Notifications for your case.").
+- domainNotes: one entry per domain worth commenting on — skip domains with nothing notable to say. status: 'match' (already fits as-is), 'tweak' (mostly fits, needs adjustment), or 'missing' (the template has nothing here but the description implies it's needed). One sentence per note.
+
+Compare structurally and semantically, not just by matching field-name text — e.g. if the description mentions "an inspection fee" and the template has a "Site Inspection" fee component, that's a match even though the wording differs.`
+}
+
+export function buildTemplateSuggestionUserContent(
+  templateName: string,
+  templateDefinition: unknown,
+  comparisonInput: { description: string } | { definition: unknown },
+): Content[] {
+  const comparisonText =
+    'description' in comparisonInput
+      ? `What the user has described they need:\n${comparisonInput.description}`
+      : `The user's current configuration so far:\n${JSON.stringify(comparisonInput.definition)}`
+  const text = `Candidate template: ${templateName}\n${JSON.stringify(templateDefinition)}\n\n${comparisonText}`
+  return [{ type: 'input_text', text }]
+}
+
 export function buildDomainUserContent(
   currentDomainSlice: unknown,
   crossReferenceContext: string | null,
