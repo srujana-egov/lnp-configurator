@@ -6,6 +6,7 @@ import { buildDomainInstructions, buildDomainUserContent, type UploadedFile } fr
 import { buildDomainResponseSchema } from '../schemas/domainResponseSchema.js'
 import {
   MetadataSchema,
+  OverallConfigurationSchema,
   RegistrySchema,
   WorkflowSchema,
   ChecklistDefinitionSchema,
@@ -17,6 +18,8 @@ import {
 import {
   metadataFromLlm,
   metadataToLlm,
+  overallConfigurationFromLlm,
+  overallConfigurationToLlm,
   registryFromLlm,
   registryToLlm,
   workflowFromLlm,
@@ -62,6 +65,16 @@ function crossReferenceFor(domain: RoutableDomain, definition: ApplicationDefini
     return stateLabels.length > 0
       ? `Existing workflow state labels (read-only, do not edit): ${JSON.stringify(stateLabels)}`
       : 'No workflow states exist yet.'
+  }
+  if (domain === 'registry') {
+    // Real dependency, not invented: the real product's Category of
+    // Business / Type of Business dropdowns are sourced from Overall
+    // Configuration's category taxonomy, not a hardcoded list. Read-only —
+    // Registry recognizes these values, it never edits the taxonomy itself.
+    const levels = definition.overallConfiguration.categoryLevels
+    return levels
+      ? `Real category taxonomy from Overall Configuration (read-only, do not edit): levels ${JSON.stringify(levels.levelNames)}, values ${JSON.stringify(levels.categories)}. A dropdown field whose options should come from this (e.g. "Category of Business") should use optionsSource: 'Overall Configuration', not a hardcoded dropdownOptions list.`
+      : 'Overall Configuration has no category taxonomy yet — if a field should pull its options from there (e.g. "Category of Business"), still use optionsSource: \'Overall Configuration\' rather than inventing a dropdownOptions list; the real values will resolve once that domain is filled in.'
   }
   if (domain === 'fees') {
     // Real evidence: the actual product's own Custom Logic "Select Fields"
@@ -148,6 +161,11 @@ export async function runDomainAgent(
       const parsed = await callDomainAgent(domain, MetadataSchema, metadataToLlm(currentDefinition.metadata), crossReference, transcript, message, files)
       const slice = metadataFromLlm(parsed.data)
       return { ...withCommon(parsed), applyTo: (d) => ({ ...d, metadata: slice }) }
+    }
+    case 'overallConfiguration': {
+      const parsed = await callDomainAgent(domain, OverallConfigurationSchema, overallConfigurationToLlm(currentDefinition.overallConfiguration), crossReference, transcript, message, files)
+      const slice = overallConfigurationFromLlm(parsed.data)
+      return { ...withCommon(parsed), applyTo: (d) => ({ ...d, overallConfiguration: slice }) }
     }
     case 'registry': {
       const parsed = await callDomainAgent(domain, RegistrySchema, registryToLlm(currentDefinition.registry), crossReference, transcript, message, files)

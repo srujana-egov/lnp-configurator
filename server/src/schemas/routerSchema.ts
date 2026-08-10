@@ -8,6 +8,7 @@ import { z } from 'zod'
 // something a chat message or document would route to.
 export const RoutableDomainSchema = z.enum([
   'metadata',
+  'overallConfiguration',
   'registry',
   'workflow',
   'roles',

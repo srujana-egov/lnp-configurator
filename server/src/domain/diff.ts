@@ -6,6 +6,7 @@ import type { RoutableDomain } from '../schemas/routerSchema.js'
 // routerSchema.ts already uses.
 const DIFFABLE_DOMAINS: RoutableDomain[] = [
   'metadata',
+  'overallConfiguration',
   'registry',
   'workflow',
   'roles',

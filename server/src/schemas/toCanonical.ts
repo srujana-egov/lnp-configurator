@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import {
   MetadataSchema,
+  OverallConfigurationSchema,
   RegistrySchema,
   WorkflowSchema,
   ChecklistDefinitionSchema,
@@ -11,6 +12,7 @@ import {
 } from './applicationDefinitionSchema.js'
 import type {
   Metadata,
+  OverallConfiguration,
   RegistryField,
   RegistrySection,
   Registry,
@@ -40,6 +42,7 @@ function undef<T>(value: T | null): T | undefined {
 // to the model — one domain agent's output is exactly one of these, never
 // the whole ApplicationDefinition. Domain agents each return one of these.
 export type LlmMetadata = z.infer<typeof MetadataSchema>
+export type LlmOverallConfiguration = z.infer<typeof OverallConfigurationSchema>
 export type LlmRegistry = z.infer<typeof RegistrySchema>
 export type LlmWorkflow = z.infer<typeof WorkflowSchema>
 export type LlmChecklists = z.infer<typeof ChecklistDefinitionSchema>[]
@@ -62,6 +65,30 @@ export function metadataFromLlm(llm: LlmMetadata): Metadata {
     department: undef(llm.department),
     applicantType: undef(llm.applicantType),
     version: undef(llm.version),
+  }
+}
+
+// issuance: true is hardcoded here, never read from the model — see
+// applicationDefinitionSchema.ts's comment on OverallConfigurationSchema.
+export function overallConfigurationFromLlm(llm: LlmOverallConfiguration): OverallConfiguration {
+  return {
+    modules: { issuance: true, renewal: llm.renewalEnabled ?? false },
+    validity: llm.validity.mode ? { mode: llm.validity.mode, months: undef(llm.validity.months) } : undefined,
+    renewal:
+      llm.renewal.reminderDaysBefore !== null && llm.renewal.graceDaysAfter !== null && llm.renewal.approval !== null
+        ? { reminderDaysBefore: llm.renewal.reminderDaysBefore, graceDaysAfter: llm.renewal.graceDaysAfter, approval: llm.renewal.approval }
+        : undefined,
+    categoryLevels:
+      llm.categoryLevels.count !== null
+        ? { count: llm.categoryLevels.count, levelNames: llm.categoryLevels.levelNames, categories: llm.categoryLevels.categories }
+        : undefined,
+    applicationId: llm.applicationId.newFormat
+      ? {
+          newFormat: llm.applicationId.newFormat,
+          renewalFormat: undef(llm.applicationId.renewalFormat),
+          licenseIdMatchesApplicationId: undef(llm.applicationId.licenseIdMatchesApplicationId),
+        }
+      : undefined,
   }
 }
 
@@ -205,6 +232,28 @@ export function metadataToLlm(metadata: Metadata): LlmMetadata {
     department: metadata.department ?? null,
     applicantType: metadata.applicantType ?? null,
     version: metadata.version ?? null,
+  }
+}
+
+export function overallConfigurationToLlm(config: OverallConfiguration): LlmOverallConfiguration {
+  return {
+    renewalEnabled: config.modules.renewal,
+    validity: { mode: config.validity?.mode ?? null, months: config.validity?.months ?? null },
+    renewal: {
+      reminderDaysBefore: config.renewal?.reminderDaysBefore ?? null,
+      graceDaysAfter: config.renewal?.graceDaysAfter ?? null,
+      approval: config.renewal?.approval ?? null,
+    },
+    categoryLevels: {
+      count: config.categoryLevels?.count ?? null,
+      levelNames: config.categoryLevels?.levelNames ?? [],
+      categories: config.categoryLevels?.categories ?? [],
+    },
+    applicationId: {
+      newFormat: config.applicationId?.newFormat ?? null,
+      renewalFormat: config.applicationId?.renewalFormat ?? null,
+      licenseIdMatchesApplicationId: config.applicationId?.licenseIdMatchesApplicationId ?? null,
+    },
   }
 }
 

@@ -287,12 +287,63 @@ export interface Settings {
   language: string
 }
 
+// --- Overall Configuration --------------------------------------------
+// Step 5 of the real wizard, the first "APPLICATION CONFIG" sub-step —
+// before Application Form. Real evidence (the real screens, reviewed
+// directly): a genuinely 8-question flow, not a guess. Category values are
+// deliberately NOT defaulted to the real product's own starter list (7 of a
+// real 27 pre-filled entries seen, e.g. Retail Shop, Food & Beverage,
+// Personal Services, Healthcare, Professional Services, Manufacturing,
+// Education & Training) — same "never invent" discipline as every other
+// domain here; only what the conversation actually names gets captured.
+
+export type LicenceValidityMode = 'fixed' | 'financialYear' | 'never'
+export type RenewalApprovalMode = 'autoApproveAll' | 'autoApproveIfUnchanged' | 'alwaysWorkflow'
+
+export interface OverallConfigurationModules {
+  // Always true on the real screen ("Always On" tag, locked) — extraction
+  // never emits false here, only ever recognizes this default, same rule as
+  // RegistryFieldSource's 'boundary'.
+  issuance: true
+  renewal: boolean
+}
+
+export interface LicenceValidity {
+  mode: LicenceValidityMode
+  months?: number // only meaningful for mode: 'fixed'
+}
+
+export interface RenewalRules {
+  reminderDaysBefore: number
+  graceDaysAfter: number
+  approval: RenewalApprovalMode
+}
+
+export interface CategoryLevels {
+  count: number // 1 | 2 | 3, real evidence
+  levelNames: string[] // e.g. ['Category'] or ['Category', 'Sub-category', 'Type']
+  categories: string[] // only ever what the user actually named
+}
+
+export interface ApplicationIdFormat {
+  newFormat: string // e.g. 'BL-YYYY-NNNNN'
+  renewalFormat?: string
+  licenseIdMatchesApplicationId?: boolean
+}
+
+export interface OverallConfiguration {
+  modules: OverallConfigurationModules
+  validity?: LicenceValidity
+  renewal?: RenewalRules
+  categoryLevels?: CategoryLevels
+  applicationId?: ApplicationIdFormat
+}
+
 // --- Root --------------------------------------------------------------
-// Overall Configuration is intentionally NOT a field here yet — no extraction
-// logic touches it until Sprint 2, so there's nothing to model until then.
 
 export interface ApplicationDefinition {
   metadata: Metadata
+  overallConfiguration: OverallConfiguration
   registry: Registry
   workflow: Workflow
   roles: Roles
@@ -305,6 +356,7 @@ export interface ApplicationDefinition {
 
 export const EMPTY_APPLICATION_DEFINITION: ApplicationDefinition = {
   metadata: {},
+  overallConfiguration: { modules: { issuance: true, renewal: false } },
   registry: { sections: [], documents: [], featureToggles: [] },
   workflow: { states: [], transitions: [] },
   roles: [],
@@ -317,6 +369,7 @@ export const EMPTY_APPLICATION_DEFINITION: ApplicationDefinition = {
 
 export type DefinitionSectionKey =
   | 'metadata'
+  | 'overallConfiguration'
   | 'registry'
   | 'workflow'
   | 'roles'

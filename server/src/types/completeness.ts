@@ -10,6 +10,7 @@ export interface CompletenessSnapshot extends CompletenessChecklist {
 
 export const EMPTY_COMPLETENESS: CompletenessSnapshot = {
   metadata: 'missing',
+  overallConfiguration: 'missing',
   registry: 'missing',
   workflow: 'missing',
   roles: 'missing',

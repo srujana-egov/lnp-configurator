@@ -15,6 +15,17 @@ function metadataStatus(definition: ApplicationDefinition): SectionStatus {
   return 'missing'
 }
 
+// Plan's own proposed rule: complete once module selection + at least one
+// category is set. modules.renewal always has a real value (true/false is
+// itself a real decision once anything else here has been touched), so
+// categories are the actual gating signal — easy to retune later.
+function overallConfigurationStatus(definition: ApplicationDefinition): SectionStatus {
+  const { validity, categoryLevels, applicationId } = definition.overallConfiguration
+  if (categoryLevels && categoryLevels.categories.length > 0) return 'complete'
+  if (validity || categoryLevels || applicationId) return 'partial'
+  return 'missing'
+}
+
 function hasNonMandatoryField(sections: ApplicationDefinition['registry']['sections']): boolean {
   return sections.some(
     (s) =>
@@ -58,11 +69,12 @@ function notificationsStatus(definition: ApplicationDefinition): SectionStatus {
 }
 
 // checklists tracked but never required — excluded here, matching the plan.
-const REQUIRED_FOR_OVERALL = ['metadata', 'registry', 'workflow', 'roles', 'fees', 'notifications'] as const
+const REQUIRED_FOR_OVERALL = ['metadata', 'overallConfiguration', 'registry', 'workflow', 'roles', 'fees', 'notifications'] as const
 
 export function computeCompleteness(definition: ApplicationDefinition): CompletenessSnapshot {
   const snapshot = {
     metadata: metadataStatus(definition),
+    overallConfiguration: overallConfigurationStatus(definition),
     registry: registryStatus(definition),
     workflow: workflowStatus(definition),
     roles: rolesStatus(definition),

@@ -15,6 +15,42 @@ export const MetadataSchema = z.object({
   version: z.string().nullable(),
 })
 
+// Overall Configuration — step 5 of the real wizard, an 8-question flow
+// confirmed against the real screens. `issuance` is deliberately NOT here —
+// it's always true on the real screen ("Always On", locked), same reasoning
+// as fieldSource/system never being asked of the model; the domain agent
+// only ever sets renewalEnabled, and toCanonical.ts hardcodes issuance: true.
+export const LicenceValiditySchema = z.object({
+  mode: z.enum(['fixed', 'financialYear', 'never']).nullable(),
+  months: z.number().nonnegative().nullable(),
+})
+
+export const RenewalRulesSchema = z.object({
+  reminderDaysBefore: z.number().nonnegative().nullable(),
+  graceDaysAfter: z.number().nonnegative().nullable(),
+  approval: z.enum(['autoApproveAll', 'autoApproveIfUnchanged', 'alwaysWorkflow']).nullable(),
+})
+
+export const CategoryLevelsSchema = z.object({
+  count: z.number().int().min(1).max(3).nullable(),
+  levelNames: z.array(z.string()),
+  categories: z.array(z.string()),
+})
+
+export const ApplicationIdFormatSchema = z.object({
+  newFormat: z.string().nullable(),
+  renewalFormat: z.string().nullable(),
+  licenseIdMatchesApplicationId: z.boolean().nullable(),
+})
+
+export const OverallConfigurationSchema = z.object({
+  renewalEnabled: z.boolean().nullable(),
+  validity: LicenceValiditySchema,
+  renewal: RenewalRulesSchema,
+  categoryLevels: CategoryLevelsSchema,
+  applicationId: ApplicationIdFormatSchema,
+})
+
 export const RegistryFieldTypeSchema = z.enum([
   'text',
   'textarea',
@@ -201,6 +237,7 @@ export const RoleSchema = z.object({
 
 export const ApplicationDefinitionSchema = z.object({
   metadata: MetadataSchema,
+  overallConfiguration: OverallConfigurationSchema,
   registry: RegistrySchema,
   workflow: WorkflowSchema,
   roles: z.array(RoleSchema),
