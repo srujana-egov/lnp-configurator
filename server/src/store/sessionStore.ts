@@ -1,7 +1,7 @@
 import type { ChatSession } from '../types/session.js'
 import { EMPTY_APPLICATION_DEFINITION } from '../types/applicationDefinition.js'
-import { EMPTY_COMPLETENESS } from '../types/completeness.js'
 import { buildMandatoryDefaultSections } from '../domain/mandatoryDefaults.js'
+import { computeCompleteness } from '../domain/completeness.js'
 import { getTemplate } from '../templates/library.js'
 
 // In-memory only — deliberately. File-per-session persistence is genuinely
@@ -30,7 +30,7 @@ export function createSession(templateId?: string): ChatSession {
   const session: ChatSession = {
     sessionId: crypto.randomUUID(),
     definition,
-    completeness: EMPTY_COMPLETENESS,
+    completeness: computeCompleteness(definition),
     messages: [],
     dismissedTemplateIds: [],
   }

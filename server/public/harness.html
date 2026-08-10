@@ -50,7 +50,7 @@
       </div>
 
       <div style="flex: 1; min-width: 360px;">
-        <h2>Application Definition</h2>
+        <h2>Application Definition <span id="overallCompleteness" style="font-size: 13px; color: #6b7280; font-weight: normal;"></span></h2>
         <div id="domainTabs" style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px;"></div>
         <div id="domainPanel"></div>
       </div>
@@ -60,6 +60,7 @@
 <script>
 let sessionId = null;
 let currentDefinition = null;
+let currentCompleteness = null;
 let activeTab = 'registry';
 
 const TABS = [
@@ -892,16 +893,24 @@ const DOMAIN_RENDERERS = {
 // arrives as a real chat message with real clickable suggestedReplies
 // chips (see the welcome message on session start, and the "What should I
 // look at next?" button, both below).
+// Badge per tab (checkmark/partial-dot/nothing) mirroring the real
+// wizard's own sidebar (checkmark per completed step) — the concrete
+// answer to "chat has no visible progress the way a wizard does."
+const STATUS_BADGE = { complete: ' ✅', partial: ' \u{1F7E1}', missing: '' };
+
 function renderTabs() {
   domainTabs.innerHTML = '';
   for (const tab of TABS) {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.textContent = tab.label;
+    const status = currentCompleteness ? currentCompleteness[tab.key] : null;
+    btn.textContent = tab.label + (status ? STATUS_BADGE[status] : '');
     btn.style.fontWeight = tab.key === activeTab ? 'bold' : 'normal';
     btn.onclick = () => { activeTab = tab.key; renderTabs(); renderActivePanel(); };
     domainTabs.appendChild(btn);
   }
+  const overallEl = document.getElementById('overallCompleteness');
+  if (overallEl) overallEl.textContent = currentCompleteness ? '(' + currentCompleteness.overall + '% complete)' : '';
 }
 
 function renderActivePanel() {
@@ -945,6 +954,7 @@ function showStartScreen() {
   document.getElementById('mainScreen').style.display = 'none';
   sessionId = null;
   currentDefinition = null;
+  currentCompleteness = null;
   document.getElementById('dumpDescription').value = '';
   document.getElementById('suggestionResult').innerHTML = '';
   document.getElementById('startStatusArea').textContent = '';
@@ -969,6 +979,7 @@ async function newSession(templateId) {
   chatLog.innerHTML = '';
   chipRow.innerHTML = '';
   statusArea.textContent = '';
+  currentCompleteness = session.completeness;
   showMainScreen();
   renderTabs();
   renderDefinition(session.definition);
@@ -1066,6 +1077,8 @@ async function sendTurn(message, files) {
   const result = await res.json();
   appendMessage('ai', result.message.text);
   renderChips(result.message.suggestedReplies);
+  currentCompleteness = result.completeness;
+  renderTabs();
   renderDefinition(result.definition);
 }
 

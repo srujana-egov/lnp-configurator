@@ -6,17 +6,22 @@ import { NextStepSuggestionSchema, type NextStepSuggestionLlmOutput } from '../s
 import { ExtractionError } from './errors.js'
 import type { ApplicationDefinition } from '../types/applicationDefinition.js'
 import type { ConversationMessage } from '../types/session.js'
+import type { CompletenessSnapshot } from '../types/completeness.js'
 
 // Same cost-optimized model tier as the router/template-suggestion calls —
 // this is a nudge, not deep extraction. Called at session start (empty
-// transcript) and on-demand via the "What should I look at next?" button
-// (real transcript) — never automatically on every turn, that would get
-// repetitive fast.
+// transcript), on-demand via the "What should I look at next?" button, and
+// now proactively after every turn that doesn't already have a pending
+// clarifyingQuestion (extractTurn.ts decides that, to avoid ever stacking
+// two questions in one turn). The completeness snapshot lets it target the
+// next incomplete domain directly instead of re-deriving that from raw
+// JSON each time.
 export async function runNextStepSuggestion(
   definition: ApplicationDefinition,
+  completeness: CompletenessSnapshot,
   transcript: ConversationMessage[],
 ): Promise<NextStepSuggestionLlmOutput> {
-  const content = buildNextStepSuggestionUserContent(definition, transcript)
+  const content = buildNextStepSuggestionUserContent(definition, completeness, transcript)
 
   let response
   try {

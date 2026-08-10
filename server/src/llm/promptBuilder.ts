@@ -187,36 +187,41 @@ export function buildTemplateSuggestionUserContent(
   return [{ type: 'input_text', text }]
 }
 
-// Next-step suggestion: a real, context-aware replacement for the earlier
-// static "what you can do here" hint panel — reasons over the actual
-// current definition + conversation instead of showing the same generic
-// examples every time. The example vocabulary below is carried over from
-// that retired panel, now as the model's own reference examples rather
-// than static UI text.
+// Next-step suggestion: proactively drives the configuration forward, the
+// way a step-by-step wizard automatically shows its next question instead
+// of waiting for the user to bring up a topic — this is the direct answer
+// to "is it fair to assume a user will type up structured info unprompted."
+// Runs after every turn that doesn't already have a pending
+// clarifyingQuestion (extractTurn.ts decides that — never stack two
+// questions in one turn, that's the "naggy" failure mode to avoid), not
+// just at session start or on demand. The example vocabulary below is
+// carried over from the earlier retired static hint panel, now as the
+// model's own reference examples rather than static UI text.
 export function buildNextStepSuggestionInstructions(): string {
-  return `You are looking at the current state of an in-progress license/permit application configuration, across all domains at once, to suggest what's genuinely worth doing next.
+  return `You are proactively driving an in-progress license/permit application configuration forward — like a step-by-step wizard automatically advancing to its next question, not waiting for the user to bring up a topic themselves.
 
-Look at the full definition below and the recent conversation. Identify 1-3 concrete, specific things worth doing next — prioritize:
-- Domains that are still empty or default-only (e.g. only the mandatory Applicant Details fields, no roles, no workflow states beyond nothing).
-- Cross-domain inconsistencies (e.g. a fee component that implies an inspection step but no matching Checklist or Workflow stage exists yet; a notification missing a channel that's actually relevant).
-Never suggest something that's already been done — check the actual definition content, don't guess.
+You're given the current definition, a completeness snapshot (which domains are 'complete', 'partial', or 'missing'), and the recent conversation. Pick exactly ONE domain that is not yet 'complete', preferring this order: registry, roles, workflow, fees, notifications — then checklists last, only if everything else is already complete (real tenants often skip it entirely, it never blocks). Ask ONE direct, concrete question about that one domain, phrased the way a wizard would phrase it — a real question the user answers, not a report about what's missing (e.g. "Which roles are involved in processing this application?", not "You haven't set up roles yet").
 
-Example vocabulary for what a good suggestion sounds like, adapt to what's actually missing, don't just copy these verbatim:
+If a cross-domain inconsistency is more urgent than the next domain in order (e.g. a fee component implies an inspection step but no matching Checklist or Workflow stage exists), ask about that instead — but still as one direct question, not an observation.
+
+If every required domain is already 'complete' (checklists doesn't count against this), say so briefly and invite a review instead of inventing a new question.
+
+Example vocabulary for what a good question's answer choices sound like, adapt to what's actually missing, don't just copy these verbatim:
 - registry: "Add a Business Details section with trade name and registration number", "Applicants must upload a No Objection Certificate"
-- workflow: "Add a Pending Approval stage after Site Inspection", "Add a Reject action from Pending Approval back to Pending Review", "Pending Review has a 48 hour SLA and requires a document upload"
+- workflow: "Add a Pending Approval stage after Site Inspection", "Pending Review has a 48 hour SLA and requires a document upload"
 - roles: "Add a Field Inspector role"
 - checklists: "Add a site inspection checklist for the Pending Field Inspection stage"
 - fees: "Add a Late Filing Fee of 1000", "Add a 5% processing surcharge on top of the total"
 - notifications: "Send an SMS when the application is approved", "Switch the reminder notifications to WhatsApp instead of SMS"
-- otherInformation: "There's a recurring monthly fee reminder with a grace period"
 
 Produce:
-- reply: a short, natural 1-3 sentence nudge — this is a nudge, not a report, keep it brief.
-- suggestedReplies: concrete, clickable next messages the user could send verbatim (e.g. "Add a Field Inspector role", not "improve roles").`
+- reply: the question itself — 1-2 sentences, direct, no preamble like "next you should think about...".
+- suggestedReplies: concrete, clickable real answers to that specific question (e.g. "Add a Field Inspector role", not "improve roles") — the same way a wizard's radio group or checklist would offer real choices, not a generic placeholder.`
 }
 
 export function buildNextStepSuggestionUserContent(
   definition: unknown,
+  completeness: unknown,
   transcript: ConversationMessage[],
 ): Content[] {
   const recentTranscript = transcript
@@ -225,6 +230,7 @@ export function buildNextStepSuggestionUserContent(
     .join('\n')
   const text = [
     `Current definition:\n${JSON.stringify(definition)}`,
+    `Completeness snapshot:\n${JSON.stringify(completeness)}`,
     recentTranscript ? `Recent conversation:\n${recentTranscript}` : '(no conversation yet — this is a brand new session)',
   ].join('\n\n')
   return [{ type: 'input_text', text }]

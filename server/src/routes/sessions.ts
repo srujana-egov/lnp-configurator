@@ -17,7 +17,7 @@ sessionsRouter.post('/', async (req, res, next) => {
     const templateId = typeof req.body?.templateId === 'string' ? req.body.templateId : undefined
     const session = createSession(templateId)
 
-    const suggestion = await runNextStepSuggestion(session.definition, [])
+    const suggestion = await runNextStepSuggestion(session.definition, session.completeness, [])
     const welcomeMessage: ConversationMessage = {
       id: crypto.randomUUID(),
       role: 'ai',
@@ -86,7 +86,7 @@ sessionsRouter.post('/:sessionId/next-steps', async (req, res, next) => {
       res.status(404).json({ error: 'Session not found' })
       return
     }
-    const suggestion = await runNextStepSuggestion(session.definition, session.messages)
+    const suggestion = await runNextStepSuggestion(session.definition, session.completeness, session.messages)
     const message: ConversationMessage = {
       id: crypto.randomUUID(),
       role: 'ai',

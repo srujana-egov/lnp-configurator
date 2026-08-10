@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { getSession, saveSession } from '../store/sessionStore.js'
 import { upload } from '../middleware/upload.js'
 import { runTurn } from '../llm/extractTurn.js'
+import { computeCompleteness } from '../domain/completeness.js'
 import type { ConversationMessage, TurnResponse } from '../types/session.js'
 
 export const turnsRouter = Router()
@@ -57,14 +58,16 @@ turnsRouter.post('/:sessionId/turns', upload.array('files', 4), async (req, res,
     }
     session.messages.push(aiMessage)
     session.definition = result.definition
+    session.completeness = computeCompleteness(session.definition)
     saveSession(session)
 
     const response: TurnResponse = {
       message: aiMessage,
       definition: session.definition,
-      // completeness/referenceChecks/highlightPaths/templateSuggestions are all
-      // Sprint 2/3/5 work — placeholders here on purpose, not forgotten.
       completeness: session.completeness,
+      // referenceChecks/highlightPaths/templateSuggestions are still real
+      // gaps (Reference Resolver, id-stability) — placeholders here on
+      // purpose, not forgotten.
       referenceChecks: [],
       highlightPaths: [],
       templateSuggestions: [],
