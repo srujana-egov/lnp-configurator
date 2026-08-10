@@ -6,6 +6,7 @@ import { computeCompleteness } from '../domain/completeness.js'
 import type { UploadedFile } from './promptBuilder.js'
 import type { ApplicationDefinition } from '../types/applicationDefinition.js'
 import type { ConversationMessage } from '../types/session.js'
+import type { RoutableDomain } from '../schemas/routerSchema.js'
 
 export interface RunTurnResult {
   reply: string
@@ -13,6 +14,7 @@ export interface RunTurnResult {
   suggestedReplies: string[]
   definition: ApplicationDefinition
   extractionNotes: string | null
+  highlightPaths: RoutableDomain[]
 }
 
 // Appends a proactive nudge toward the next incomplete domain — the direct
@@ -58,6 +60,7 @@ export async function runTurn(
       suggestedReplies: routed.suggestedReplies,
       definition: currentDefinition,
       extractionNotes: null,
+      highlightPaths: [],
     }
   }
 
@@ -66,7 +69,7 @@ export async function runTurn(
   // this is exactly the moment to proactively redirect toward what's next.
   if (routed.domains.length === 0) {
     return withProactiveNudge(
-      { reply: routed.reply, clarifyingQuestion: null, suggestedReplies: routed.suggestedReplies, definition: currentDefinition, extractionNotes: null },
+      { reply: routed.reply, clarifyingQuestion: null, suggestedReplies: routed.suggestedReplies, definition: currentDefinition, extractionNotes: null, highlightPaths: [] },
       transcript,
     )
   }

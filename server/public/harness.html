@@ -32,6 +32,7 @@
 
   <div id="mainScreen" style="display: none;">
     <button type="button" id="backToStartBtn">&larr; Back to Start</button>
+    <button type="button" id="forgetSessionBtn" title="Stop auto-resuming this session on reload">Forget this session</button>
     <span id="sessionLabel"></span>
 
     <div style="display: flex; gap: 24px; margin-top: 16px;">
@@ -62,6 +63,29 @@ let sessionId = null;
 let currentDefinition = null;
 let currentCompleteness = null;
 let activeTab = 'registry';
+
+// Every /api/sessions* route now requires API_SHARED_SECRET (server/.env) as
+// a Bearer token. Prompt once, cache in localStorage — this is an internal
+// test harness, not a real login UI.
+const API_SECRET_STORAGE_KEY = 'lnp-configurator-api-secret';
+let apiSecret = localStorage.getItem(API_SECRET_STORAGE_KEY);
+if (!apiSecret) {
+  apiSecret = prompt('Enter the API shared secret (API_SHARED_SECRET from server/.env):') || '';
+  if (apiSecret) localStorage.setItem(API_SECRET_STORAGE_KEY, apiSecret);
+}
+
+async function apiFetch(url, options = {}) {
+  const res = await fetch(url, { ...options, headers: { ...(options.headers || {}), Authorization: 'Bearer ' + apiSecret } });
+  if (res.status === 401) {
+    localStorage.removeItem(API_SECRET_STORAGE_KEY);
+    apiSecret = prompt('That secret was rejected. Enter the correct API shared secret:') || '';
+    if (apiSecret) {
+      localStorage.setItem(API_SECRET_STORAGE_KEY, apiSecret);
+      return apiFetch(url, options);
+    }
+  }
+  return res;
+}
 
 const TABS = [
   { key: 'registry', label: 'Form' },
@@ -965,15 +989,12 @@ function showMainScreen() {
   document.getElementById('mainScreen').style.display = '';
 }
 
-async function newSession(templateId) {
-  document.getElementById('startStatusArea').style.color = '#333';
-  document.getElementById('startStatusArea').textContent = 'Creating session...';
-  const res = await fetch('/api/sessions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(templateId ? { templateId } : {}),
-  });
-  const session = await res.json();
+const SESSION_STORAGE_KEY = 'lnp-configurator-session-id';
+
+// Shared by a freshly created session and a resumed one — both arrive as the
+// same ChatSession shape (POST /api/sessions and GET /api/sessions/:id return
+// identical JSON), so there's nothing session-creation-specific to redo here.
+function hydrateSession(session) {
   sessionId = session.sessionId;
   sessionLabel.textContent = ' session: ' + sessionId;
   chatLog.innerHTML = '';
@@ -989,6 +1010,33 @@ async function newSession(templateId) {
   (session.messages || []).forEach((m) => appendMessage(m.role, m.text));
   const lastMessage = (session.messages || [])[session.messages.length - 1];
   renderChips(lastMessage ? lastMessage.suggestedReplies : []);
+  localStorage.setItem(SESSION_STORAGE_KEY, session.sessionId);
+}
+
+async function newSession(templateId) {
+  document.getElementById('startStatusArea').style.color = '#333';
+  document.getElementById('startStatusArea').textContent = 'Creating session...';
+  const res = await apiFetch('/api/sessions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(templateId ? { templateId } : {}),
+  });
+  hydrateSession(await res.json());
+}
+
+// Called once on page load if a previous session id is still in localStorage —
+// this is what lets someone close the tab (or the server restart) and come
+// back later to the same conversation instead of starting over. Returns
+// whether the resume actually succeeded, so the caller can fall back to the
+// start screen if the session is genuinely gone (id typo'd, files cleared).
+async function resumeSession(id) {
+  const res = await apiFetch('/api/sessions/' + id);
+  if (!res.ok) {
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+    return false;
+  }
+  hydrateSession(await res.json());
+  return true;
 }
 
 async function askWhatsNext() {
@@ -998,7 +1046,7 @@ async function askWhatsNext() {
   }
   statusArea.style.color = '#333';
   statusArea.textContent = 'Thinking...';
-  const res = await fetch('/api/sessions/' + sessionId + '/next-steps', { method: 'POST' });
+  const res = await apiFetch('/api/sessions/' + sessionId + '/next-steps', { method: 'POST' });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     statusArea.textContent = 'Error ' + res.status + ': ' + (err.message || err.error);
@@ -1040,7 +1088,7 @@ async function suggestBeforeSession() {
   }
   startStatusArea.textContent = '';
   document.getElementById('suggestionResult').innerHTML = '<p><em>Thinking...</em></p>';
-  const res = await fetch('/api/sessions/suggest-template', {
+  const res = await apiFetch('/api/sessions/suggest-template', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ description }),
@@ -1068,7 +1116,7 @@ async function sendTurn(message, files) {
   formData.append('message', message);
   for (const file of files) formData.append('files', file);
 
-  const res = await fetch('/api/sessions/' + sessionId + '/turns', { method: 'POST', body: formData });
+  const res = await apiFetch('/api/sessions/' + sessionId + '/turns', { method: 'POST', body: formData });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     statusArea.textContent = 'Error ' + res.status + ': ' + (err.message || err.error);
@@ -1093,7 +1141,7 @@ async function suggestTemplateInSession() {
   }
   statusArea.style.color = '#333';
   statusArea.textContent = 'Thinking...';
-  const res = await fetch('/api/sessions/' + sessionId + '/suggest-template', { method: 'POST' });
+  const res = await apiFetch('/api/sessions/' + sessionId + '/suggest-template', { method: 'POST' });
   const { suggestion } = await res.json();
   statusArea.textContent = suggestion
     ? suggestion.name + ' — ' + suggestion.matchPercent + '% match. ' + suggestion.reply
@@ -1102,6 +1150,15 @@ async function suggestTemplateInSession() {
 
 document.getElementById('startBlankBtn').onclick = () => newSession(undefined);
 document.getElementById('backToStartBtn').onclick = showStartScreen;
+// Distinct from "Back to Start": that's just navigation (reloading the page
+// still resumes the same session). This explicitly drops the resume pointer
+// — the session itself isn't deleted server-side, only forgotten by this
+// browser, so reloading lands on the start screen instead of picking it back
+// up.
+document.getElementById('forgetSessionBtn').onclick = () => {
+  localStorage.removeItem(SESSION_STORAGE_KEY);
+  showStartScreen();
+};
 document.getElementById('startFromTemplateBtn').onclick = () => {
   if (!templateSelect.value) {
     document.getElementById('startStatusArea').textContent = 'Pick a template first.';
@@ -1123,7 +1180,14 @@ document.getElementById('turnForm').onsubmit = (e) => {
 
 loadTemplateOptions();
 renderTabs();
-showStartScreen();
+const savedSessionId = localStorage.getItem(SESSION_STORAGE_KEY);
+if (savedSessionId) {
+  resumeSession(savedSessionId).then((resumed) => {
+    if (!resumed) showStartScreen();
+  });
+} else {
+  showStartScreen();
+}
 </script>
 </body>
 </html>

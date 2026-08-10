@@ -1,6 +1,7 @@
-import type { ApplicationDefinition, DefinitionSectionKey } from './applicationDefinition.js'
+import type { ApplicationDefinition } from './applicationDefinition.js'
 import type { CompletenessSnapshot } from './completeness.js'
 import type { ValidationCheck } from './compilation.js'
+import type { RoutableDomain } from '../schemas/routerSchema.js'
 
 export type MessageRole = 'administrator' | 'ai' | 'system'
 
@@ -54,6 +55,9 @@ export interface TurnResponse {
   definition: ApplicationDefinition
   completeness: CompletenessSnapshot
   referenceChecks: ValidationCheck[]
-  highlightPaths: DefinitionSectionKey[]
+  // RoutableDomain, not DefinitionSectionKey — otherInformation can change
+  // and needs highlighting too, even though completeness deliberately never
+  // tracks it (see completeness.ts).
+  highlightPaths: RoutableDomain[]
   templateSuggestions: TemplateSuggestion[]
 }

@@ -4,6 +4,7 @@ import { config } from './config.js'
 import { sessionsRouter } from './routes/sessions.js'
 import { turnsRouter } from './routes/turns.js'
 import { errorHandler } from './middleware/errorHandler.js'
+import { requireApiSecret } from './middleware/auth.js'
 
 const app = express()
 
@@ -15,8 +16,10 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true, model: config.openaiModel })
 })
 
-app.use('/api/sessions', sessionsRouter)
-app.use('/api/sessions', turnsRouter)
+// Health check stays open (no session data, useful for uptime probes) —
+// everything under /api/sessions requires the shared secret.
+app.use('/api/sessions', requireApiSecret, sessionsRouter)
+app.use('/api/sessions', requireApiSecret, turnsRouter)
 
 app.use(errorHandler)
 

@@ -20,6 +20,7 @@ dist-ssr
 
 # Backend session persistence (server/, per the Phase 1 backend plan)
 server/.sessions/
+server/.logs/
 
 # Editor directories and files
 .vscode/*

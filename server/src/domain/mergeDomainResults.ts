@@ -1,6 +1,9 @@
 import type { ApplicationDefinition } from '../types/applicationDefinition.js'
 import type { DomainAgentResult } from '../llm/domainAgents.js'
+import type { RoutableDomain } from '../schemas/routerSchema.js'
 import { enforceMandatoryDefaults, dedupeSectionsByKind } from './mandatoryDefaults.js'
+import { reconcileIds } from './reconcileIds.js'
+import { diffDefinitions } from './diff.js'
 
 export interface MergedTurnResult {
   reply: string
@@ -8,6 +11,7 @@ export interface MergedTurnResult {
   suggestedReplies: string[]
   extractionNotes: string | null
   definition: ApplicationDefinition
+  highlightPaths: RoutableDomain[]
 }
 
 // Code, not a model call — replaces just the domains that were actually
@@ -25,11 +29,15 @@ export function mergeDomainResults(
   }
   definition = enforceMandatoryDefaults(definition)
   definition = dedupeSectionsByKind(definition)
+  // Stable ids before diffing — otherwise every untouched sibling item's
+  // freshly-minted id (see reconcileIds.ts) would make it look modified.
+  definition = reconcileIds(currentDefinition, definition)
 
   const reply = results.map((r) => r.reply).join('\n\n')
   const clarifyingQuestion = results.map((r) => r.clarifyingQuestion).find((q): q is string => q !== null) ?? null
   const suggestedReplies = results.flatMap((r) => r.suggestedReplies)
   const extractionNotes = results.map((r) => r.extractionNotes).filter((n): n is string => n !== null).join('\n') || null
+  const highlightPaths = diffDefinitions(currentDefinition, definition)
 
-  return { reply, clarifyingQuestion, suggestedReplies, extractionNotes, definition }
+  return { reply, clarifyingQuestion, suggestedReplies, extractionNotes, definition, highlightPaths }
 }
