@@ -76,7 +76,12 @@ export function overallConfigurationFromLlm(llm: LlmOverallConfiguration): Overa
     validity: llm.validity.mode ? { mode: llm.validity.mode, months: undef(llm.validity.months) } : undefined,
     renewal:
       llm.renewal.reminderDaysBefore !== null && llm.renewal.graceDaysAfter !== null && llm.renewal.approval !== null
-        ? { reminderDaysBefore: llm.renewal.reminderDaysBefore, graceDaysAfter: llm.renewal.graceDaysAfter, approval: llm.renewal.approval }
+        ? {
+            reminderDaysBefore: llm.renewal.reminderDaysBefore,
+            graceDaysAfter: llm.renewal.graceDaysAfter,
+            approval: llm.renewal.approval,
+            renewalFormSameAsApplication: undef(llm.renewal.renewalFormSameAsApplication),
+          }
         : undefined,
     categoryLevels:
       llm.categoryLevels.count !== null
@@ -87,7 +92,11 @@ export function overallConfigurationFromLlm(llm: LlmOverallConfiguration): Overa
           newFormat: llm.applicationId.newFormat,
           renewalFormat: undef(llm.applicationId.renewalFormat),
           licenseIdMatchesApplicationId: undef(llm.applicationId.licenseIdMatchesApplicationId),
+          licenseIdSameAsRenewedLicenseId: undef(llm.applicationId.licenseIdSameAsRenewedLicenseId),
         }
+      : undefined,
+    applicationYear: llm.applicationYear.allowPastYears !== null
+      ? { allowPastYears: llm.applicationYear.allowPastYears, pastYearsCount: undef(llm.applicationYear.pastYearsCount) }
       : undefined,
   }
 }
@@ -114,7 +123,7 @@ export function registryFromLlm(llm: LlmRegistry): Registry {
     conditional: undef(s.conditional),
     fields: s.fields ? registryFieldsFromLlm(s.fields) : undefined,
     subsections: s.subsections
-      ? s.subsections.map((sub) => ({ title: sub.title, fields: registryFieldsFromLlm(sub.fields) }))
+      ? s.subsections.map((sub) => ({ title: sub.title, fields: registryFieldsFromLlm(sub.fields), repeatable: undef(sub.repeatable) }))
       : undefined,
   }))
   return {
@@ -196,7 +205,15 @@ export function feesFromLlm(llm: LlmFees): FeeConfig {
         amount: row.amount,
       }))
     : undefined
-  return { mode: llm.mode, feeComponents, additionalComponents, dependentFields, matrix }
+  return {
+    mode: llm.mode,
+    feeComponents,
+    additionalComponents,
+    dependentFields,
+    matrix,
+    apiEndpoint: undef(llm.apiEndpoint),
+    paymentMethods: llm.paymentMethods.length > 0 ? llm.paymentMethods : undefined,
+  }
 }
 
 export function notificationsFromLlm(llm: LlmNotifications): Notifications {
@@ -243,6 +260,7 @@ export function overallConfigurationToLlm(config: OverallConfiguration): LlmOver
       reminderDaysBefore: config.renewal?.reminderDaysBefore ?? null,
       graceDaysAfter: config.renewal?.graceDaysAfter ?? null,
       approval: config.renewal?.approval ?? null,
+      renewalFormSameAsApplication: config.renewal?.renewalFormSameAsApplication ?? null,
     },
     categoryLevels: {
       count: config.categoryLevels?.count ?? null,
@@ -253,6 +271,11 @@ export function overallConfigurationToLlm(config: OverallConfiguration): LlmOver
       newFormat: config.applicationId?.newFormat ?? null,
       renewalFormat: config.applicationId?.renewalFormat ?? null,
       licenseIdMatchesApplicationId: config.applicationId?.licenseIdMatchesApplicationId ?? null,
+      licenseIdSameAsRenewedLicenseId: config.applicationId?.licenseIdSameAsRenewedLicenseId ?? null,
+    },
+    applicationYear: {
+      allowPastYears: config.applicationYear?.allowPastYears ?? null,
+      pastYearsCount: config.applicationYear?.pastYearsCount ?? null,
     },
   }
 }
@@ -277,7 +300,7 @@ export function registryToLlm(registry: Registry): LlmRegistry {
       conditional: s.conditional ?? null,
       fields: s.fields ? registryFieldsToLlm(s.fields) : null,
       subsections: s.subsections
-        ? s.subsections.map((sub) => ({ title: sub.title, fields: registryFieldsToLlm(sub.fields) }))
+        ? s.subsections.map((sub) => ({ title: sub.title, fields: registryFieldsToLlm(sub.fields), repeatable: sub.repeatable ?? null }))
         : null,
     })),
     documents: registry.documents,
@@ -339,6 +362,8 @@ export function feesToLlm(fees: FeeConfig): LlmFees {
           amount: row.amount,
         }))
       : null,
+    apiEndpoint: fees.apiEndpoint ?? null,
+    paymentMethods: fees.paymentMethods ?? [],
   }
 }
 

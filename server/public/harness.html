@@ -258,6 +258,24 @@ function fieldInput(field) {
 const VALIDITY_MODE_LABEL = { fixed: 'Fixed duration', financialYear: 'Financial year', never: 'Never expires' };
 const RENEWAL_APPROVAL_LABEL = { autoApproveAll: 'Auto-approve all', autoApproveIfUnchanged: 'Auto-approve if unchanged', alwaysWorkflow: 'Always via approval workflow' };
 
+// categories is a flat list of full paths (one per real category value,
+// e.g. {path:['Retail Shop','Grocery']}) rather than a tree — grouped back
+// under their top-level value here purely for display, a pure transform
+// with no bearing on how the data is actually stored.
+function groupCategoryPaths(categories) {
+  const groups = [];
+  const byTop = {};
+  categories.forEach((c) => {
+    const top = c.path[0];
+    if (!byTop[top]) {
+      byTop[top] = { top, rest: [] };
+      groups.push(byTop[top]);
+    }
+    if (c.path.length > 1) byTop[top].rest.push(c.path.slice(1).join(' → '));
+  });
+  return groups;
+}
+
 function renderOverallConfiguration(config) {
   let html = '<div style="display:flex; flex-direction:column; gap:10px; font-size:13px;">';
   html += '<div><strong>Modules:</strong> Issuance' + (config.modules.renewal ? ', Renewal' : '') + '</div>';
@@ -265,15 +283,30 @@ function renderOverallConfiguration(config) {
     html += '<div><strong>Validity:</strong> ' + (VALIDITY_MODE_LABEL[config.validity.mode] || config.validity.mode) +
       (config.validity.months != null ? ' (' + config.validity.months + ' months)' : '') + '</div>';
   }
+  if (config.applicationYear) {
+    html += '<div><strong>Application years:</strong> ' +
+      (config.applicationYear.allowPastYears
+        ? 'Current year + ' + (config.applicationYear.pastYearsCount != null ? config.applicationYear.pastYearsCount : '?') + ' past year(s)'
+        : 'Current year only') + '</div>';
+  }
   if (config.renewal) {
     html += '<div><strong>Renewal:</strong> reminder ' + config.renewal.reminderDaysBefore + 'd before expiry, ' +
-      config.renewal.graceDaysAfter + 'd grace period &middot; ' + (RENEWAL_APPROVAL_LABEL[config.renewal.approval] || config.renewal.approval) + '</div>';
+      config.renewal.graceDaysAfter + 'd grace period &middot; ' + (RENEWAL_APPROVAL_LABEL[config.renewal.approval] || config.renewal.approval) +
+      (config.renewal.renewalFormSameAsApplication != null
+        ? ' &middot; renewal form: ' + (config.renewal.renewalFormSameAsApplication ? 'same as application' : 'independent')
+        : '') + '</div>';
   }
   if (config.categoryLevels) {
     html += '<div><strong>Category levels (' + config.categoryLevels.count + '):</strong> ' +
       config.categoryLevels.levelNames.map((n) => n.replace(/</g, '&lt;')).join(' &rarr; ') + '</div>';
-    html += '<div><strong>Categories:</strong> ' +
-      (config.categoryLevels.categories.length ? config.categoryLevels.categories.map((c) => c.replace(/</g, '&lt;')).join(', ') : '<em>none yet</em>') + '</div>';
+    if (config.categoryLevels.categories.length) {
+      html += '<div><strong>Categories:</strong><ul style="margin:4px 0;">' +
+        groupCategoryPaths(config.categoryLevels.categories).map((g) =>
+          '<li>' + g.top.replace(/</g, '&lt;') + (g.rest.length ? ': ' + g.rest.map((r) => r.replace(/</g, '&lt;')).join(', ') : '') + '</li>'
+        ).join('') + '</ul></div>';
+    } else {
+      html += '<div><strong>Categories:</strong> <em>none yet</em></div>';
+    }
   }
   if (config.applicationId) {
     html += '<div><strong>Application ID format:</strong> ' + config.applicationId.newFormat.replace(/</g, '&lt;') +
@@ -281,9 +314,12 @@ function renderOverallConfiguration(config) {
     if (config.applicationId.licenseIdMatchesApplicationId != null) {
       html += '<div><strong>Licence ID matches Application ID:</strong> ' + (config.applicationId.licenseIdMatchesApplicationId ? 'Yes' : 'No') + '</div>';
     }
+    if (config.applicationId.licenseIdSameAsRenewedLicenseId != null) {
+      html += '<div><strong>Renewed licence keeps original ID:</strong> ' + (config.applicationId.licenseIdSameAsRenewedLicenseId ? 'Yes' : 'No') + '</div>';
+    }
   }
   html += '</div>';
-  if (!config.validity && !config.renewal && !config.categoryLevels && !config.applicationId) {
+  if (!config.validity && !config.renewal && !config.categoryLevels && !config.applicationId && !config.applicationYear) {
     html += '<p><em>Nothing extracted yet beyond the default modules.</em></p>';
   }
   return html;
@@ -882,12 +918,29 @@ function wireFeeExamples(container) {
   });
 }
 
+function renderPaymentMethods(fees) {
+  return fees.paymentMethods && fees.paymentMethods.length
+    ? '<p style="font-size:12px; color:#666;"><strong>Payment methods:</strong> ' + fees.paymentMethods.map((m) => m.replace(/</g, '&lt;')).join(', ') + '</p>'
+    : '';
+}
+
 function renderFees(fees) {
+  // Real third fee-calculation type ("Custom Calculator (API)") — the fee
+  // comes from an external endpoint at calculation time, not from any
+  // amount this system holds, so there's nothing to sum/render but the
+  // endpoint itself.
+  if (fees.mode === 'api') {
+    return '<p><strong>Mode:</strong> Custom Calculator (API)</p>' +
+      (fees.apiEndpoint
+        ? '<p><strong>Endpoint:</strong> ' + fees.apiEndpoint.replace(/</g, '&lt;') + '</p>'
+        : '<p><em>No endpoint set yet.</em></p>') +
+      renderPaymentMethods(fees);
+  }
   if (fees.mode === 'custom' && fees.dependentFields && fees.dependentFields.length > 0) {
-    return renderCustomFees(fees);
+    return renderCustomFees(fees) + renderPaymentMethods(fees);
   }
   if (fees.feeComponents.length === 0 && fees.additionalComponents.length === 0) {
-    return '<p><em>Nothing extracted yet.</em></p>';
+    return (fees.paymentMethods && fees.paymentMethods.length ? '' : '<p><em>Nothing extracted yet.</em></p>') + renderPaymentMethods(fees);
   }
   let html = '<p><strong>Mode:</strong> ' + fees.mode + '</p><ul>';
   let total = 0;
@@ -903,6 +956,7 @@ function renderFees(fees) {
     }
     html += '</ul>';
   }
+  html += renderPaymentMethods(fees);
   return html;
 }
 

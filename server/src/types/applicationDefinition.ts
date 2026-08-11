@@ -71,6 +71,14 @@ export interface RegistryField {
 export interface RegistrySubsection {
   title: string
   fields: RegistryField[]
+  // Real evidence (the real Business License template spec — Owner/Proprietor
+  // Details' "Add Individual" button): a subsection can represent a
+  // repeatable group, not just a fixed set of fields. Conservative on
+  // purpose, matching the existing conditional/repeating-structure rule —
+  // this only ever marks that a subsection repeats; it doesn't model how
+  // many instances exist or their individual data (Phase 1 doesn't need to,
+  // since real citizen submissions are out of scope here).
+  repeatable?: boolean
 }
 
 // The discontinued form builder treated Address/Applicant/Document as fixed,
@@ -225,11 +233,26 @@ export interface FeeMatrixRow {
 }
 
 export interface FeeConfig {
-  mode: 'flat' | 'custom'
+  // Real evidence (the real Business License template spec): the real
+  // product calls these three "Flat Fee," "Slab Based," and "Custom
+  // Calculator (API)." 'custom' here is this codebase's existing name for
+  // "Slab Based" (built earlier from the real Custom Logic wizard) — kept
+  // as-is rather than renamed, to avoid a disruptive rename across every
+  // file that already references 'custom' mode. 'api' is the new, genuinely
+  // different third mode: fee is computed by calling an external endpoint
+  // at calculation time, not by any data this system holds.
+  mode: 'flat' | 'custom' | 'api'
   feeComponents: FeeComponent[]
   additionalComponents: AdditionalFeeComponent[]
   dependentFields?: FeeDependentField[]
   matrix?: FeeMatrixRow[]
+  // 'api' mode only — the admin-provided endpoint the real system calls
+  // with the application data, displaying whatever fee it returns.
+  apiEndpoint?: string
+  // Real evidence (same template spec, Payment Stages): a separate concept
+  // from the fee structure itself — which channels citizens can actually
+  // pay through (e.g. "Online", "Counter"), not modeled anywhere before.
+  paymentMethods?: string[]
 }
 
 // --- Roles / Notifications -----------------------------------------------
@@ -317,18 +340,51 @@ export interface RenewalRules {
   reminderDaysBefore: number
   graceDaysAfter: number
   approval: RenewalApprovalMode
+  // Real evidence (the real Business License template spec): a genuinely
+  // separate toggle from the approval mode above — whether the renewal
+  // form itself reuses the full issuance form, or gets its own independent
+  // sections/fields.
+  renewalFormSameAsApplication?: boolean
+}
+
+// Real evidence (the real Business License template spec) corrected the
+// earlier guess of 1-3 levels — the real supported range is 1 to 5.
+// Category values are a real parent/child hierarchy (e.g. "Retail Shop" has
+// its own real sub-categories "Grocery"/"Clothing"/"Electronics"), not a
+// flat list — a flat list of bare names would lose that relationship.
+// Modeled as one full path per real category value (e.g. ["Retail Shop",
+// "Grocery"]) rather than a recursive tree — a flat list of paths is simple
+// for the model to emit reliably and for OpenAI's structured-output schema
+// to represent (no recursive $ref); grouping paths back into a tree for
+// display is a cheap, pure transform whenever that's actually needed.
+export interface CategoryPath {
+  path: string[] // one value per level, e.g. ['Retail Shop', 'Grocery']
 }
 
 export interface CategoryLevels {
-  count: number // 1 | 2 | 3, real evidence
+  count: number // 1-5, real evidence
   levelNames: string[] // e.g. ['Category'] or ['Category', 'Sub-category', 'Type']
-  categories: string[] // only ever what the user actually named
+  categories: CategoryPath[] // only ever what the user actually named
 }
 
 export interface ApplicationIdFormat {
-  newFormat: string // e.g. 'BL-YYYY-NNNNN'
+  newFormat: string // e.g. 'BL-YYYY-NNNNNN'
   renewalFormat?: string
   licenseIdMatchesApplicationId?: boolean
+  // Real evidence (the real Business License template spec) — renewal-only:
+  // whether a renewed licence keeps its original License ID, or a new one
+  // is generated on renewal. Distinct from licenseIdMatchesApplicationId
+  // above, which is about the issuance-time relationship, not renewal.
+  licenseIdSameAsRenewedLicenseId?: boolean
+}
+
+// Real evidence (the real Business License template spec) — a genuinely
+// new concept, not covered by anything else here: whether applicants can
+// only apply for the current year, or also for a configurable number of
+// past financial years.
+export interface ApplicationYearConfig {
+  allowPastYears: boolean
+  pastYearsCount?: number // 1-5, only meaningful when allowPastYears is true
 }
 
 export interface OverallConfiguration {
@@ -337,6 +393,7 @@ export interface OverallConfiguration {
   renewal?: RenewalRules
   categoryLevels?: CategoryLevels
   applicationId?: ApplicationIdFormat
+  applicationYear?: ApplicationYearConfig
 }
 
 // --- Root --------------------------------------------------------------

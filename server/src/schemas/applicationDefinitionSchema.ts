@@ -29,18 +29,34 @@ export const RenewalRulesSchema = z.object({
   reminderDaysBefore: z.number().nonnegative().nullable(),
   graceDaysAfter: z.number().nonnegative().nullable(),
   approval: z.enum(['autoApproveAll', 'autoApproveIfUnchanged', 'alwaysWorkflow']).nullable(),
+  renewalFormSameAsApplication: z.boolean().nullable(),
+})
+
+// Real range is 1-5 (real Business License template spec), corrected from
+// an earlier guess of 1-3. categories is a flat list of full paths (one
+// per real category value, e.g. ['Retail Shop', 'Grocery']) rather than a
+// recursive tree — simpler for the model to emit and safer for OpenAI's
+// structured-output schema (no recursive $ref).
+export const CategoryPathSchema = z.object({
+  path: z.array(z.string()),
 })
 
 export const CategoryLevelsSchema = z.object({
-  count: z.number().int().min(1).max(3).nullable(),
+  count: z.number().int().min(1).max(5).nullable(),
   levelNames: z.array(z.string()),
-  categories: z.array(z.string()),
+  categories: z.array(CategoryPathSchema),
 })
 
 export const ApplicationIdFormatSchema = z.object({
   newFormat: z.string().nullable(),
   renewalFormat: z.string().nullable(),
   licenseIdMatchesApplicationId: z.boolean().nullable(),
+  licenseIdSameAsRenewedLicenseId: z.boolean().nullable(),
+})
+
+export const ApplicationYearConfigSchema = z.object({
+  allowPastYears: z.boolean().nullable(),
+  pastYearsCount: z.number().int().min(1).max(5).nullable(),
 })
 
 export const OverallConfigurationSchema = z.object({
@@ -49,6 +65,7 @@ export const OverallConfigurationSchema = z.object({
   renewal: RenewalRulesSchema,
   categoryLevels: CategoryLevelsSchema,
   applicationId: ApplicationIdFormatSchema,
+  applicationYear: ApplicationYearConfigSchema,
 })
 
 export const RegistryFieldTypeSchema = z.enum([
@@ -85,6 +102,11 @@ export const RegistryFieldSchema = z.object({
 export const RegistrySubsectionSchema = z.object({
   title: z.string(),
   fields: z.array(RegistryFieldSchema),
+  // Real evidence (Owner/Proprietor Details' "Add Individual" button) — but
+  // same conservative rule as conditional structures generally: never
+  // freely invented by the model for a new custom subsection, only ever
+  // recognized when it's already true on an existing system-provided one.
+  repeatable: z.boolean().nullable(),
 })
 
 export const RegistrySectionSchema = z.object({
@@ -192,12 +214,18 @@ export const FeeMatrixRowSchema = z.object({
   amount: z.number().nonnegative(),
 })
 
+// 'api' is the real product's third fee-calculation type ("Custom
+// Calculator (API)") — genuinely different from 'custom' (slab/matrix,
+// this codebase's existing name for the real "Slab Based" mode): the fee
+// comes from calling an external endpoint, not from any data held here.
 export const FeeConfigSchema = z.object({
-  mode: z.enum(['flat', 'custom']),
+  mode: z.enum(['flat', 'custom', 'api']),
   feeComponents: z.array(FeeComponentSchema),
   additionalComponents: z.array(AdditionalFeeComponentSchema),
   dependentFields: z.array(FeeDependentFieldSchema).nullable(),
   matrix: z.array(FeeMatrixRowSchema).nullable(),
+  apiEndpoint: z.string().nullable(),
+  paymentMethods: z.array(z.string()),
 })
 
 // Same partial-knowledge reasoning as FeeComponent — event/channel/recipient

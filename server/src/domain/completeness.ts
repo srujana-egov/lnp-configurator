@@ -55,11 +55,14 @@ function checklistsStatus(definition: ApplicationDefinition): SectionStatus {
 }
 
 function feesStatus(definition: ApplicationDefinition): SectionStatus {
-  const { mode, feeComponents, dependentFields, matrix } = definition.fees
+  const { mode, feeComponents, dependentFields, matrix, apiEndpoint } = definition.fees
   if (mode === 'custom') {
     if ((dependentFields ?? []).length > 0 && (matrix ?? []).length > 0) return 'complete'
     if ((dependentFields ?? []).length > 0) return 'partial'
     return 'missing'
+  }
+  if (mode === 'api') {
+    return apiEndpoint ? 'complete' : 'missing'
   }
   return feeComponents.length > 0 ? 'complete' : 'missing'
 }
