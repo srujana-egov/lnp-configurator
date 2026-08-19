@@ -6,6 +6,7 @@ import { runTurn } from '../llm/extractTurn.js'
 import { computeCompleteness } from '../domain/completeness.js'
 import { resolveReferences } from '../domain/referenceResolver.js'
 import { logTurn } from '../observability/turnLog.js'
+import { RoutableDomainSchema } from '../schemas/routerSchema.js'
 import type { ConversationMessage, TurnResponse } from '../types/session.js'
 
 export const turnsRouter = Router()
@@ -29,7 +30,7 @@ const turnsRateLimit = rateLimit({
   message: { error: 'Too many turns for this session — wait a moment and try again.' },
 })
 
-turnsRouter.post('/:sessionId/turns', turnsRateLimit, upload.array('files', 4), async (req, res, next) => {
+turnsRouter.post('/:sessionId/turns', turnsRateLimit, upload.array('files', 12), async (req, res, next) => {
   try {
     const sessionId = req.params.sessionId
     if (typeof sessionId !== 'string') {
@@ -48,6 +49,13 @@ turnsRouter.post('/:sessionId/turns', turnsRateLimit, upload.array('files', 4), 
       res.status(400).json({ error: 'Provide a message or at least one file' })
       return
     }
+    // Which step's screen the user is actually looking at — every step
+    // has its own dedicated screen now, so a proactive nudge toward a
+    // *different* domain would land on a screen that has nothing to do
+    // with it. Absent/invalid falls back to the unscoped global nudge
+    // (the pre-session dump, or any caller that doesn't send this yet).
+    const focusDomainParse = RoutableDomainSchema.safeParse(req.body?.activeStep)
+    const focusDomain = focusDomainParse.success ? focusDomainParse.data : undefined
 
     const administratorMessage: ConversationMessage = {
       id: crypto.randomUUID(),
@@ -65,7 +73,10 @@ turnsRouter.post('/:sessionId/turns', turnsRateLimit, upload.array('files', 4), 
         mimeType: f.mimetype,
         base64: f.buffer.toString('base64'),
       })),
+      session.feesClarifyStreak ?? 0,
+      focusDomain,
     )
+    session.feesClarifyStreak = result.feesClarifyStreak
 
     // clarifyingQuestion was being silently dropped here — caught during the real
     // Sprint 1 test, not by tsc. ConversationMessage has no dedicated slot for it,

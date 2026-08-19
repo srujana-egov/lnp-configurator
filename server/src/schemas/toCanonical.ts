@@ -80,7 +80,12 @@ export function overallConfigurationFromLlm(llm: LlmOverallConfiguration): Overa
             reminderDaysBefore: llm.renewal.reminderDaysBefore,
             graceDaysAfter: llm.renewal.graceDaysAfter,
             approval: llm.renewal.approval,
-            renewalFormSameAsApplication: undef(llm.renewal.renewalFormSameAsApplication),
+            // Not a real configurable choice in the actual product (a
+            // separate renewal form "is not yet available") — enforced
+            // true in code once renewal rules exist at all, not left to
+            // the model to remember every time, same "compulsory things
+            // belong in code" principle as mandatoryDefaults.ts.
+            renewalFormSameAsApplication: true,
           }
         : undefined,
     categoryLevels:
@@ -111,6 +116,7 @@ function registryFieldsFromLlm(fields: LlmRegistry['sections'][number]['fields']
     dropdownOptions: undef(f.dropdownOptions) ?? undefined,
     optionsSource: undef(f.optionsSource),
     pullFromDatabase: undef(f.pullFromDatabase),
+    source: undef(f.source),
     fieldSource: 'custom',
   }))
 }
@@ -213,6 +219,7 @@ export function feesFromLlm(llm: LlmFees): FeeConfig {
     matrix,
     apiEndpoint: undef(llm.apiEndpoint),
     paymentMethods: llm.paymentMethods.length > 0 ? llm.paymentMethods : undefined,
+    needsConfirmation: llm.needsConfirmation,
   }
 }
 
@@ -260,7 +267,6 @@ export function overallConfigurationToLlm(config: OverallConfiguration): LlmOver
       reminderDaysBefore: config.renewal?.reminderDaysBefore ?? null,
       graceDaysAfter: config.renewal?.graceDaysAfter ?? null,
       approval: config.renewal?.approval ?? null,
-      renewalFormSameAsApplication: config.renewal?.renewalFormSameAsApplication ?? null,
     },
     categoryLevels: {
       count: config.categoryLevels?.count ?? null,
@@ -289,6 +295,9 @@ function registryFieldsToLlm(fields: RegistryField[] | undefined) {
     dropdownOptions: f.dropdownOptions ?? null,
     optionsSource: f.optionsSource ?? null,
     pullFromDatabase: f.pullFromDatabase ?? null,
+    // Shown back to the model so it can echo an untouched field's existing
+    // attribution rather than needing to re-derive it every turn.
+    source: f.source ?? null,
   }))
 }
 
@@ -364,6 +373,7 @@ export function feesToLlm(fees: FeeConfig): LlmFees {
       : null,
     apiEndpoint: fees.apiEndpoint ?? null,
     paymentMethods: fees.paymentMethods ?? [],
+    needsConfirmation: fees.needsConfirmation ?? false,
   }
 }
 

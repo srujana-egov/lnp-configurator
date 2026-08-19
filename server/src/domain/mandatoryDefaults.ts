@@ -3,6 +3,11 @@ import { freshId } from '../schemas/toCanonical.js'
 
 const MANDATORY_APPLICANT_DETAILS_TITLE = 'Applicant Details'
 
+// Real attribution for a field that was never extracted from anything —
+// "where did this come from" has an honest answer here too, not just for
+// AI-authored fields.
+const MANDATORY_FIELD_SOURCE = 'Standard platform requirement — not extracted from a document or message'
+
 // Real, code-level baseline — not something a model is asked for, and not
 // something conversation can remove. Sprint 1 demo feedback (#4): compulsory
 // fields need to be deterministic, not something a prompt merely tends to
@@ -19,9 +24,9 @@ function buildMandatoryApplicantDetailsSection(): RegistrySection {
     kind: 'applicant',
     system: true,
     fields: [
-      { id: freshId(), label: 'Full Name', type: 'text', required: true, validationNotes: 'Min 3 characters', fieldSource: 'mandatory' },
-      { id: freshId(), label: 'Mobile Number', type: 'phone', required: true, validationNotes: '10-digit number', fieldSource: 'mandatory' },
-      { id: freshId(), label: 'Email Address', type: 'email', required: false, fieldSource: 'mandatory' },
+      { id: freshId(), label: 'Full Name', type: 'text', required: true, validationNotes: 'Min 3 characters', fieldSource: 'mandatory', source: MANDATORY_FIELD_SOURCE },
+      { id: freshId(), label: 'Mobile Number', type: 'phone', required: true, validationNotes: '10-digit number', fieldSource: 'mandatory', source: MANDATORY_FIELD_SOURCE },
+      { id: freshId(), label: 'Email Address', type: 'email', required: false, fieldSource: 'mandatory', source: MANDATORY_FIELD_SOURCE },
       {
         id: freshId(),
         label: 'ID Type',
@@ -29,8 +34,9 @@ function buildMandatoryApplicantDetailsSection(): RegistrySection {
         required: true,
         dropdownOptions: ['Passport', 'Driving License', 'ID Card', 'Foreigner ID', 'Residence ID'],
         fieldSource: 'mandatory',
+        source: MANDATORY_FIELD_SOURCE,
       },
-      { id: freshId(), label: 'ID Number', type: 'text', required: true, fieldSource: 'mandatory' },
+      { id: freshId(), label: 'ID Number', type: 'text', required: true, fieldSource: 'mandatory', source: MANDATORY_FIELD_SOURCE },
     ],
   }
 }
@@ -76,4 +82,31 @@ export function dedupeSectionsByKind(definition: ApplicationDefinition): Applica
     return definition
   }
   return { ...definition, registry: { ...definition.registry, sections } }
+}
+
+// Real, live-verified gap: turning Renewal off only ever edits
+// overallConfiguration itself (that's the one domain the agent handling
+// that message writes to) — nothing tells Workflow or Checklist their own
+// renewal-specific content is now stale, so a renewal-transition graph or
+// a renewal checklist can silently outlive the module that owns it.
+// Fixed deterministically here for the two domains with a real, structural
+// way to know which content is renewal-only (Workflow.renewalTransitions is
+// its own field; ChecklistDefinition.module is explicitly tagged).
+// Notifications has no equivalent tag — a NotificationRule can't
+// structurally tell a renewal-flavored rule apart from an issuance one
+// (the real product's own "Application Submitted" event is reused, with a
+// different message, by both) — a real, currently-unclosed gap, not an
+// oversight.
+export function enforceRenewalModuleConsistency(definition: ApplicationDefinition): ApplicationDefinition {
+  if (definition.overallConfiguration.modules.renewal) {
+    return definition
+  }
+  let next = definition
+  if (next.workflow.renewalTransitions && next.workflow.renewalTransitions.length > 0) {
+    next = { ...next, workflow: { ...next.workflow, renewalTransitions: undefined } }
+  }
+  if (next.checklists.some((c) => c.module === 'renewal')) {
+    next = { ...next, checklists: next.checklists.filter((c) => c.module !== 'renewal') }
+  }
+  return next
 }

@@ -20,6 +20,7 @@ export async function runNextStepSuggestion(
   definition: ApplicationDefinition,
   completeness: CompletenessSnapshot,
   transcript: ConversationMessage[],
+  focusDomain?: string,
 ): Promise<NextStepSuggestionLlmOutput> {
   const content = buildNextStepSuggestionUserContent(definition, completeness, transcript)
 
@@ -28,7 +29,7 @@ export async function runNextStepSuggestion(
     response = await openai.responses.parse({
       model: config.openaiRouterModel,
       input: [
-        { role: 'system', content: buildNextStepSuggestionInstructions() },
+        { role: 'system', content: buildNextStepSuggestionInstructions(focusDomain) },
         { role: 'user', content },
       ],
       text: { format: zodTextFormat(NextStepSuggestionSchema, 'next_step_suggestion') },

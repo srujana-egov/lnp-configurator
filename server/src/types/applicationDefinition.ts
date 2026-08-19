@@ -253,6 +253,13 @@ export interface FeeConfig {
   // from the fee structure itself — which channels citizens can actually
   // pay through (e.g. "Online", "Counter"), not modeled anywhere before.
   paymentMethods?: string[]
+  // The draft→confirm gate: true the moment the specialist proposes new or
+  // changed fee logic (and its reply must ask the user to confirm it before
+  // treating it as final — see the fees domain rule), cleared back to false
+  // only once the user has actually confirmed. A wrong AI judgment here is a
+  // real financial mistake, not a cosmetic one — nothing should be treated
+  // as settled until a human has actually looked at it.
+  needsConfirmation?: boolean
 }
 
 // --- Roles / Notifications -----------------------------------------------

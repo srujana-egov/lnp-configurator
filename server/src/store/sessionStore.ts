@@ -79,6 +79,7 @@ export function createSession(templateId?: string): ChatSession {
     completeness: computeCompleteness(definition),
     messages: [],
     dismissedTemplateIds: [],
+    feesClarifyStreak: 0,
   }
 }
 

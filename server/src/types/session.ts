@@ -30,6 +30,12 @@ export interface ChatSession {
   messages: ConversationMessage[]
   dismissedTemplateIds: string[]
   context?: SessionContext
+  // Consecutive unresolved Fees clarifying questions, counted server-side
+  // (never trust the model to self-report this) — the architect's own
+  // escalation rule: two guided rounds, then the third turn falls back to
+  // the deterministic screen instead of asking again. Absent on
+  // already-persisted older sessions; treat as 0. See extractTurn.ts.
+  feesClarifyStreak?: number
 }
 
 export interface TemplateSuggestionDomainNote {

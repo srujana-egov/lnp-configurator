@@ -52,6 +52,7 @@
   legend { font-size: 10.5px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; padding: 0 4px; }
   .status-error { color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; border-radius: var(--radius-sm); padding: 8px 12px; font-size: 12px; white-space: pre-wrap; font-family: inherit; margin: 10px 0 0; }
   .status-error:empty { display: none; margin: 0; }
+  .screen-only-note { background: #fefce8; border: 1px solid #fde68a; border-radius: var(--radius-sm); padding: 8px 12px; margin-bottom: 12px; font-size: 12px; color: #78350f; }
   .chat-log { background: var(--accent-soft); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; height: 420px; overflow-y: auto; }
   .msg { display: flex; flex-direction: column; margin-bottom: 14px; }
   .msg-administrator { align-items: flex-end; }
@@ -70,12 +71,105 @@
   .top-actions { display: flex; align-items: center; gap: 4px; margin-bottom: 16px; }
   .session-label { font-size: 12px; color: var(--text-faint); margin-left: 6px; }
   .main-columns { display: flex; gap: 20px; flex-wrap: wrap; }
-  .main-columns > .card { flex: 1; min-width: 380px; }
+  /* 75/25: the panel (direct-manipulation UI for the active step) is the
+     primary surface now; chat is a supporting assist column, not a peer —
+     the per-step split the architect asked for, replacing the old 50/50
+     chat-vs-tabs layout. */
+  .main-columns > .chat-card { flex: 1 1 300px; min-width: 300px; max-width: 340px; }
+  .main-columns > .panel-card { flex: 3 1 640px; min-width: 380px; }
+  /* Application Form's first-time entry: full-screen chat with a real
+     starting-prompt library, replacing a 75% panel that would otherwise
+     show nothing yet. Reverts to the normal 75/25 split the moment a real
+     field exists (registry completeness flips off 'missing'). */
+  .main-columns > .chat-card.chat-card-full { flex: 1 1 100%; max-width: 720px; margin: 0 auto; }
+  .registry-welcome { max-width: 720px; margin: 0 auto 16px; }
+  .registry-welcome h2 { font-size: 19px; margin: 0 0 6px; }
+  .registry-welcome .oc-note { margin-bottom: 14px; }
+  .starter-prompt { display: block; width: 100%; text-align: left; border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 8px; background: #fff; cursor: pointer; font-size: 13px; }
+  .starter-prompt:hover { border-color: var(--text-faint); background: var(--accent-soft); }
+  /* Fees' live formula strip — the compact answer to "show it as it's
+     built, without going back to a full rendered table." Builds up as an
+     expression (Total = A + B); click a term to see how it's actually
+     computed, same click-to-reveal pattern as everything else. */
+  .fee-formula-bar { border: 1px solid var(--border); border-radius: var(--radius); background: #fafbfc; padding: 10px 12px; margin-bottom: 12px; }
+  .formula-term { cursor: pointer; text-decoration: underline dotted; font-weight: 600; }
+  .formula-term:hover { color: #3b82f6; }
+  .formula-detail-row { margin-top: 6px; font-size: 12px; color: #4b5563; background: #faf9ff; border: 1px solid #e5e7eb; border-radius: 4px; padding: 6px 8px; }
+  .formula-mini-table { width: 100%; border-collapse: collapse; font-size: 11.5px; margin-top: 4px; }
+  .formula-mini-table th, .formula-mini-table td { text-align: left; padding: 3px 5px; border-bottom: 1px solid #eef0f2; }
   .start-hero { display: flex; gap: 28px; flex-wrap: wrap; }
   .start-option { flex: 1; min-width: 280px; }
+  .template-card-grid { display: flex; flex-wrap: wrap; gap: 14px; }
+  .template-card { width: 150px; height: 150px; flex: 0 0 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 4px; border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 14px; cursor: pointer; transition: border-color .12s, background .12s; }
+  .template-card:hover { border-color: var(--text-faint); background: var(--accent-soft); }
+  .template-card strong { display: block; font-size: 13px; }
+  .template-card span { font-size: 11.5px; color: var(--text-muted); }
+  .step-bar { display: flex; align-items: center; gap: 0; margin-bottom: 16px; overflow-x: auto; padding-bottom: 4px; }
+  .step-dot { display: flex; flex-direction: column; align-items: center; gap: 4px; border: none; background: transparent; padding: 0 10px; cursor: pointer; flex-shrink: 0; }
+  .step-dot .circle { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--border-strong); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--text-muted); background: #fff; }
+  .step-dot.active .circle { border-color: var(--text); color: var(--text); font-weight: 600; }
+  .step-dot.done .circle { border-color: #16a34a; background: #16a34a; color: #fff; }
+  .step-dot .label { font-size: 10.5px; color: var(--text-muted); white-space: nowrap; }
+  .step-dot.active .label { color: var(--text); font-weight: 600; }
+  .step-connector { flex: 0 0 18px; height: 1.5px; background: var(--border-strong); margin-top: -16px; }
+  .step-nav { display: flex; justify-content: space-between; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .step-assist-label { font-size: 10.5px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+  /* Screen-wide, impossible-to-miss loading signal — the small chat bubble
+     alone wasn't enough: it lives in one column, and browsing to a
+     different step while a real multi-file dump was still processing (a
+     genuinely slow call) hid it entirely, reading as "nothing happened"
+     rather than "still working." This spans every step. */
+  .loading-banner { position: fixed; top: 0; left: 0; right: 0; z-index: 2000; background: var(--accent); color: #fff; font-size: 13px; font-weight: 600; padding: 10px 20px; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 1px 6px rgba(0,0,0,.25); }
+  .loading-banner .spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: lnp-spin .8s linear infinite; }
+  @keyframes lnp-spin { to { transform: rotate(360deg); } }
+
+  /* Overall Configuration wizard — full-screen, one question at a time,
+     matching the reference product exactly (screenshots supplied) rather
+     than the 75/25 chat+panel every other step uses. This domain is
+     screen-driven by design (never AI-authored), so a real wizard replaces
+     the normal panel here instead of sitting alongside it. */
+  .oc-wizard-card { max-width: 760px; margin: 0 auto; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px 36px; }
+  .oc-wizard-card h2 { font-size: 20px; margin: 0 0 6px; }
+  .oc-q-desc { color: var(--text-muted); font-size: 13.5px; margin: 0 0 20px; }
+  .oc-radio-card { border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 10px; cursor: pointer; transition: border-color .12s, background .12s; }
+  .oc-radio-card:hover { border-color: var(--text-faint); }
+  .oc-radio-card.selected { border-color: #3b82f6; background: #eff6ff; }
+  .oc-radio-card strong { font-size: 14px; }
+  .oc-hint { font-size: 12.5px; color: var(--text-muted); margin-top: 3px; }
+  .oc-badge { font-size: 10.5px; background: #dcfce7; color: #15803d; border-radius: 10px; padding: 2px 8px; font-weight: 600; }
+  .oc-note { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; border-radius: var(--radius-sm); padding: 10px 12px; font-size: 12.5px; margin-top: 4px; }
+  .oc-inline-field { margin: 12px 0; }
+  .oc-inline-field label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); margin-bottom: 5px; }
+  .oc-inline-field input, .oc-inline-field select { width: 100%; padding: 9px 10px; }
+  .oc-stepper { display: flex; align-items: center; gap: 12px; margin: 10px 0; }
+  .oc-stepper button { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border-strong); background: #fff; font-size: 16px; cursor: pointer; }
+  .oc-stepper .value { font-size: 20px; font-weight: 600; min-width: 40px; text-align: center; }
+  .oc-cat-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+  .oc-cat-table th { text-align: left; font-size: 11px; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); padding: 6px 4px; }
+  .oc-cat-table td { padding: 6px 4px; border-bottom: 1px solid #f3f4f6; }
+  .oc-cat-table input { width: 100%; }
+  .oc-review-section { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .oc-review-section h4 { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin: 0 0 4px; }
+  .oc-review-section p { margin: 0; font-size: 13.5px; }
+  .oc-review-edit { border: none; background: transparent; color: var(--text-faint); cursor: pointer; font-size: 14px; }
+
+  /* Corner chat widget — replaces the persistent chat column just for this
+     step. Deliberately narrow-scoped: it answers from an attached
+     reference document only, it never touches the wizard's own answers. */
+  .oc-corner-bubble { position: fixed; bottom: 24px; right: 24px; z-index: 1500; width: 52px; height: 52px; border-radius: 50%; background: var(--accent); color: #fff; border: none; font-size: 20px; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,.25); }
+  .oc-corner-panel { position: fixed; bottom: 88px; right: 24px; z-index: 1500; width: 320px; max-height: 60vh; background: #fff; border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 4px 20px rgba(0,0,0,.18); display: flex; flex-direction: column; overflow: hidden; }
+  .oc-corner-panel-header { padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 12.5px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+  .oc-corner-log { flex: 1; overflow-y: auto; padding: 10px 14px; font-size: 12.5px; max-height: 220px; }
+  .oc-corner-log .msg-bubble { font-size: 12.5px; padding: 7px 10px; }
+  .oc-corner-panel-footer { padding: 10px 14px; border-top: 1px solid var(--border); }
+  .oc-corner-panel-footer textarea { width: 100%; font-size: 12.5px; }
 </style>
 </head>
 <body>
+  <div id="loadingBanner" class="loading-banner" style="display: none;">
+    <span class="spinner"></span>
+    <span id="loadingBannerText">Thinking…</span>
+  </div>
   <div class="app-header">
     <h1>AI-Assisted DIGIT Application Configurator</h1>
     <p>Describe or upload documents for a license/permit application — the assistant extracts and configures Form, Workflow, Roles, Checklist, Fees, Notifications, and Other Information as you go.</p>
@@ -87,21 +181,24 @@
        directly, or describe what you need and get a real gap analysis back
        before committing to a session at all. -->
   <div id="startScreen" class="card">
-    <h2>Start a new configuration</h2>
-    <div class="start-hero">
-      <div class="start-option">
-        <h3>Pick a template</h3>
-        <select id="templateSelect"><option value="">— choose —</option></select>
-        <button class="btn btn-primary" id="startFromTemplateBtn">Start from Template</button>
+    <div class="start-option" style="margin-bottom: 28px;">
+      <h3>Dump everything you know</h3>
+      <div style="border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 16px; background: #fff;">
+        <textarea id="dumpDescription" rows="8" placeholder="Describe the license/permit, paste policy text, or just jot down what you know — a business license application with a site inspection step and a flat fee... (optional if you're only attaching documents below)" style="border: none; padding: 0; resize: vertical; width: 100%; font-size: 14px;"></textarea>
+        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+          <input id="dumpFiles" type="file" multiple accept="application/pdf,image/png,image/jpeg" />
+        </div>
       </div>
-      <div class="start-option">
-        <h3>Or describe what you need</h3>
-        <textarea id="dumpDescription" rows="3" placeholder="e.g. A business license application with a site inspection step and a flat fee..."></textarea><br />
-        <button type="button" class="btn" id="suggestBeforeSessionBtn" style="margin-top: 8px;">Suggest a Template</button>
-        <div id="suggestionResult" style="margin-top: 8px;"></div>
-      </div>
+      <button type="button" class="btn btn-primary" id="suggestBeforeSessionBtn" style="margin-top: 10px;">Continue</button>
+      <div id="suggestionResult" style="margin-top: 8px;"></div>
     </div>
-    <p style="margin-top: 16px;"><button type="button" class="btn btn-primary" id="startBlankBtn">Start Blank (no template)</button></p>
+
+    <div class="start-option">
+      <h3>Know exactly what you need?</h3>
+      <div id="templateCards" class="template-card-grid"><p><em>Loading templates…</em></p></div>
+    </div>
+
+    <p style="margin-top: 20px;"><button type="button" class="btn" id="startBlankBtn">Skip — start blank (no template, no description)</button></p>
     <pre id="startStatusArea" class="status-error"></pre>
   </div>
 
@@ -112,27 +209,62 @@
       <span id="sessionLabel" class="session-label"></span>
     </div>
 
+    <div id="stepBar" class="step-bar"></div>
+
+    <div id="ocWizardScreen" style="display: none;"></div>
+    <div id="feesManualScreen" style="display: none;"></div>
+    <div id="feesReviewScreen" style="display: none;"></div>
+
+    <button type="button" id="ocCornerBubble" class="oc-corner-bubble" style="display: none;" title="Ask about this step">?</button>
+    <div id="ocCornerPanel" class="oc-corner-panel" style="display: none;">
+      <div class="oc-corner-panel-header">
+        <span>Ask about this step</span>
+        <button type="button" id="ocCornerCloseBtn" class="btn btn-ghost" style="padding: 2px 6px;">✕</button>
+      </div>
+      <div id="ocCornerLog" class="oc-corner-log"><p style="color: var(--text-faint);"><em>Ask a question about what any field or button on this step means.</em></p></div>
+      <div class="oc-corner-panel-footer">
+        <textarea id="ocCornerQuestion" rows="2" placeholder="e.g. What happens if I choose 'financial year' validity?"></textarea>
+        <button type="button" id="ocCornerAskBtn" class="btn btn-primary" style="margin-top: 6px; width: 100%;">Ask</button>
+      </div>
+    </div>
+
     <div class="main-columns">
-      <div class="card">
-        <h2>Chat</h2>
+      <div class="card panel-card">
+        <h2 id="stepPanelTitle">Application Definition <span id="overallCompleteness" style="font-size: 13px; color: var(--text-muted); font-weight: normal;"></span></h2>
+        <div id="screenOnlyBanner"></div>
+        <div id="domainPanel"></div>
+        <div class="step-nav">
+          <button type="button" class="btn" id="stepPrevBtn">&larr; Back</button>
+          <span id="stepPositionLabel" style="font-size:12px; color: var(--text-muted); align-self:center;"></span>
+          <button type="button" class="btn btn-primary" id="stepNextBtn">Next &rarr;</button>
+        </div>
+      </div>
+
+      <div class="card chat-card">
+        <div id="stepWelcome" class="registry-welcome" style="display: none;"></div>
+        <div style="display: flex; justify-content: space-between; align-items: baseline;">
+          <h2 style="margin: 0;">Assist</h2>
+          <button type="button" id="feesManualModeBtn" class="btn btn-ghost" style="display: none; font-size: 12px;">🛠 Switch to manual mode</button>
+        </div>
+        <div class="step-assist-label" id="stepAssistLabel"></div>
+        <div id="feeFormulaBar" class="fee-formula-bar" style="display: none;"></div>
         <div id="chatLog" class="chat-log"></div>
         <div id="chipRow" class="chip-row"></div>
         <form id="turnForm" style="margin-top: 12px;">
           <textarea id="messageInput" rows="3" placeholder="Type a message..."></textarea><br />
+          <div id="stepStarters" style="margin: 8px 0; display: none;"></div>
           <input id="fileInput" type="file" multiple accept="application/pdf,image/png,image/jpeg" style="margin-top: 8px;" /><br />
           <button type="submit" class="btn btn-primary" id="sendBtn" style="margin-top: 8px;">Send</button>
         </form>
-        <div style="margin-top: 10px; display: flex; gap: 8px;">
+        <div id="chatUtilityBtns" style="margin-top: 10px; display: flex; gap: 8px;">
           <button type="button" class="btn" id="suggestTemplateBtn">Suggest a Template</button>
           <button type="button" class="btn" id="whatsNextBtn">What should I look at next?</button>
         </div>
         <pre id="statusArea" class="status-error"></pre>
-      </div>
-
-      <div class="card">
-        <h2>Application Definition <span id="overallCompleteness" style="font-size: 13px; color: var(--text-muted); font-weight: normal;"></span></h2>
-        <div id="domainTabs" class="tab-bar"></div>
-        <div id="domainPanel"></div>
+        <div id="chatOnlyStepNav" class="step-nav" style="display: none;">
+          <button type="button" class="btn" id="chatOnlyPrevBtn">&larr; Back</button>
+          <button type="button" class="btn btn-primary" id="chatOnlyReviewBtn">Review &amp; Continue &rarr;</button>
+        </div>
       </div>
     </div>
   </div>
@@ -143,7 +275,11 @@
 let sessionId = null;
 let currentDefinition = null;
 let currentCompleteness = null;
-let activeTab = 'registry';
+let activeTab = 'overallConfiguration';
+// Which steps the user has already sent at least one chat message on —
+// drives the first-visit full-screen welcome, reset per session (see
+// hydrateSession), marked the moment a message is sent (see sendTurn).
+let stepsMessaged = new Set();
 
 // Every /api/sessions* route now requires API_SHARED_SECRET (server/.env) as
 // a Bearer token. Prompt once, cache in localStorage — this is an internal
@@ -168,24 +304,126 @@ async function apiFetch(url, options = {}) {
   return res;
 }
 
+// screenOnly matches routerSchema.ts's SCREEN_NAME — empty now that every
+// domain is AI-authored (the dump attributes content to whichever domain
+// it actually belongs to); kept as a per-tab flag rather than removed so a
+// specific step can be pulled back to screen-only later without touching
+// renderActivePanel's note logic. Order matches the architect's flow;
+// numbered 1-indexed on their own (Dump/Template-match are separate,
+// unnumbered screens before a session exists, not steps 1-2 of this bar).
 const TABS = [
   { key: 'overallConfiguration', label: 'Overall Config' },
-  { key: 'registry', label: 'Form' },
+  { key: 'registry', label: 'Application Form' },
+  { key: 'fees', label: 'Fees' },
   { key: 'workflow', label: 'Workflow' },
   { key: 'roles', label: 'Roles' },
-  { key: 'checklists', label: 'Checklist' },
-  { key: 'fees', label: 'Fees' },
   { key: 'notifications', label: 'Notifications' },
-  { key: 'otherInformation', label: 'Other Information' },
+  { key: 'checklists', label: 'Checklist' },
+  { key: 'otherInformation', label: 'Other Information & Review' },
 ];
+
+// First-visit orientation per step — heading + info copy only. Starter
+// EXAMPLES are deliberately not hardcoded here any more: a static
+// "Add a GST Certificate" means nothing if this tenant's Overall
+// Configuration never mentioned GST — they're fetched fresh per session
+// from /welcome-starters, grounded in the real definition, and can come
+// back empty (shown as no suggestions at all, not a fallback to
+// boilerplate). See fetchWelcomeStarters.
+const STEP_WELCOME = {
+  registry: {
+    heading: "Let's build your Application Form",
+    info: 'Mandatory fields are already added for you — <strong>Applicant Details</strong> (Full Name, Mobile Number, Email, ID Type, ID Number) is already on the form. Describe what\'s <em>additional</em> to that for this licence.',
+  },
+  fees: {
+    heading: "Let's set up Fees",
+    info: 'Three ways in: describe a fee here in plain language, upload an existing fee schedule/document, or add one directly on the screen once fields exist below. Whichever way, fee logic is grounded in the fields already on your <strong>Application Form</strong> — a fee that depends on a field (e.g. Category of Business) needs that field to exist there first.',
+  },
+  workflow: { heading: "Let's describe the Workflow", info: null },
+  roles: { heading: "Let's define Roles", info: null },
+  notifications: { heading: "Let's set up Notifications", info: null },
+  checklists: {
+    heading: "Let's set up Checklists",
+    info: 'This is low-priority and often genuinely empty for real tenants — skip it if there\'s nothing to add.',
+  },
+  otherInformation: {
+    heading: 'Anything else?',
+    info: 'Anything that doesn\'t fit Form, Fees, Workflow, Roles, Checklist, or Notifications belongs here — describe it, or attach a document.',
+  },
+};
+
+// { [domain]: string[] | 'loading' } — fetched once per domain per
+// session, not per render; reset on hydrateSession (a new/resumed session
+// has a different real definition to ground suggestions in).
+// Steps with no live side panel at all — review happens conversationally
+// (a worked-example walkthrough + explicit confirm step in chat), not via
+// a rendered table. Fees specifically: unlike a form or workflow diagram,
+// there's nothing meaningful to render until a fee is actually confirmed.
+const CHAT_ONLY_DOMAINS = new Set(['fees']);
+
+let welcomeStartersCache = {};
+
+function renderStepStarters(domain) {
+  const startersEl = document.getElementById('stepStarters');
+  const cached = welcomeStartersCache[domain];
+  if (cached === 'loading' || cached === undefined) {
+    startersEl.innerHTML = '<div style="font-size: 12px; color: var(--text-faint);"><em>Thinking of a few starting points…</em></div>';
+    return;
+  }
+  if (!cached.length) {
+    // Correct, honest empty state — no context yet to ground a real
+    // suggestion in, so none are shown, not a fallback to boilerplate.
+    startersEl.innerHTML = '';
+    return;
+  }
+  startersEl.innerHTML =
+    '<div style="font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-faint); margin-bottom: 6px;">Not sure what to type? Click one to start:</div>' +
+    cached.map((s) => '<button type="button" class="starter-prompt" data-starter="' + s.replace(/"/g, '&quot;') + '">' + s.replace(/</g, '&lt;') + '</button>').join('');
+}
+
+async function fetchWelcomeStarters(domain) {
+  if (welcomeStartersCache[domain] !== undefined) return;
+  welcomeStartersCache[domain] = 'loading';
+  let starters = [];
+  try {
+    const res = await apiFetch('/api/sessions/' + sessionId + '/welcome-starters', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ domain }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      starters = data.starters || [];
+    }
+  } catch (e) {
+    starters = [];
+  }
+  welcomeStartersCache[domain] = starters;
+  // Only worth re-rendering if the user is still looking at this step's
+  // welcome screen — they may have already typed and moved on by the
+  // time this resolves.
+  if (activeTab === domain && !stepsMessaged.has(domain)) {
+    renderStepStarters(domain);
+  }
+}
 
 const chatLog = document.getElementById('chatLog');
 const chipRow = document.getElementById('chipRow');
-const domainTabs = document.getElementById('domainTabs');
+const stepBar = document.getElementById('stepBar');
 const domainPanel = document.getElementById('domainPanel');
 const statusArea = document.getElementById('statusArea');
 const sessionLabel = document.getElementById('sessionLabel');
-const templateSelect = document.getElementById('templateSelect');
+const sendBtn = document.getElementById('sendBtn');
+const loadingBanner = document.getElementById('loadingBanner');
+const loadingBannerText = document.getElementById('loadingBannerText');
+
+function showLoadingBanner(text) {
+  loadingBannerText.textContent = text || 'Thinking…';
+  loadingBanner.style.display = 'flex';
+}
+
+function hideLoadingBanner() {
+  loadingBanner.style.display = 'none';
+}
 
 const ROLE_LABEL = { administrator: 'You', ai: 'Assistant' };
 
@@ -224,7 +462,6 @@ function fieldInput(field) {
   if (field.validationNotes) notes.push(field.validationNotes);
   if (field.optionsSource) notes.push('options from: ' + field.optionsSource);
   if (field.pullFromDatabase) notes.push('pulls options from database');
-  if (field.source) notes.push('source: ' + field.source);
 
   let inputHtml;
   if (field.type === 'dropdown') {
@@ -251,8 +488,27 @@ function fieldInput(field) {
     ' <em style="color:#666;">[' + field.type + ', ' + field.fieldSource + ']</em></label><br/>' +
     inputHtml +
     (notes.length ? '<br/><small style="color:#666;">' + notes.join(' · ') + '</small>' : '') +
+    (field.source
+      ? '<div class="field-source-row" data-field-id="' + field.id + '" style="margin-top:3px; cursor:pointer;">' +
+        '<small style="color:#7c6ff0; text-decoration:underline dotted;">Where did this come from?</small>' +
+        (expandedFieldSources.has(field.id)
+          ? '<div style="font-size:11px; color:#4b5563; margin-top:2px; background:#faf9ff; border:1px solid #e5e7eb; border-radius:4px; padding:5px 8px;">' + field.source.replace(/</g, '&lt;') + '</div>'
+          : '') +
+        '</div>'
+      : '') +
     '</div>'
   );
+}
+
+function wireFieldSources(container) {
+  container.querySelectorAll('.field-source-row').forEach((el) => {
+    el.onclick = () => {
+      const id = el.getAttribute('data-field-id');
+      if (expandedFieldSources.has(id)) expandedFieldSources.delete(id);
+      else expandedFieldSources.add(id);
+      renderActivePanel();
+    };
+  });
 }
 
 const VALIDITY_MODE_LABEL = { fixed: 'Fixed duration', financialYear: 'Financial year', never: 'Never expires' };
@@ -781,6 +1037,625 @@ function renderRoles(definition) {
 // multiple checklists page through with Prev/Next instead (mirrors DIGIT
 // Studio's own "My Checklists" list + one-at-a-time detail view).
 let checklistPageIndex = 0;
+// Click-to-reveal per field, same pattern as fee worked examples and
+// notification rows — real attribution shouldn't be dumped inline on
+// every field by default, it should be there when actually asked for.
+let expandedFieldSources = new Set();
+// Click-to-reveal per formula term (see renderFeeFormulaBar) — same
+// pattern, one more time.
+let expandedFormulaTerms = new Set();
+
+// Fees' live formula strip — builds up as an expression (Total = A + B)
+// as components get added via chat, no full table required. Clicking a
+// term reveals how it's actually computed (flat / percentage / matrix).
+function renderFeeFormulaBar(fees) {
+  const bar = document.getElementById('feeFormulaBar');
+  if (!fees) { bar.style.display = 'none'; return; }
+  const feeComponents = fees.feeComponents || [];
+  const additionalComponents = fees.additionalComponents || [];
+  const dependentFields = fees.dependentFields || [];
+  const hasMatrixRows = fees.mode === 'custom' && fees.matrix && fees.matrix.length > 0;
+  // A dependency can be named (e.g. "the fee depends on Property Type")
+  // several turns before real ranges/amounts exist for it — the hollow-
+  // structure guard deliberately won't fabricate those. Show that
+  // in-progress state too, not just the fully-populated end result, so
+  // the bar visibly updates as soon as anything fee-related starts, not
+  // only once it's finished.
+  const hasPendingDependency = fees.mode === 'custom' && dependentFields.length > 0 && !hasMatrixRows
+  if (feeComponents.length === 0 && additionalComponents.length === 0 && !hasMatrixRows && !hasPendingDependency) {
+    bar.style.display = 'none';
+    return;
+  }
+  bar.style.display = '';
+
+  const terms = [];
+  feeComponents.forEach((c, i) => terms.push({
+    key: 'fee-' + i,
+    label: c.label,
+    detailHtml: 'Flat fee of <strong>' + c.amount + '</strong>.',
+  }));
+  additionalComponents.forEach((c, i) => terms.push({
+    key: 'addl-' + i,
+    label: c.name,
+    detailHtml: c.type === 'percentage'
+      ? '<strong>' + c.value + '%</strong> surcharge added on top of the running total.'
+      : 'Flat add-on of <strong>' + c.value + '</strong>.',
+  }));
+  if (hasMatrixRows) {
+    const depNames = dependentFields.map((f) => f.fieldLabel);
+    let detail = 'Looked up from a matrix based on <strong>' + depNames.join(', ').replace(/</g, '&lt;') + '</strong> — ' + fees.matrix.length + ' combination(s) configured.';
+    if (fees.matrix.length <= 8) {
+      detail += '<table class="formula-mini-table"><thead><tr>' +
+        depNames.map((n) => '<th>' + n.replace(/</g, '&lt;') + '</th>').join('') + '<th>Amount</th></tr></thead><tbody>' +
+        fees.matrix.map((row) => '<tr>' + depNames.map((n) => '<td>' + (row.combination[n] || '').replace(/</g, '&lt;') + '</td>').join('') + '<td>' + row.amount + '</td></tr>').join('') +
+        '</tbody></table>';
+    }
+    terms.push({ key: 'matrix', label: 'Matrix (' + depNames.join(', ').replace(/</g, '&lt;') + ')', detailHtml: detail });
+  } else if (hasPendingDependency) {
+    const depNames = dependentFields.map((f) => f.fieldLabel);
+    const rangeCounts = dependentFields.map((f) => f.fieldLabel + ': ' + (f.ranges || []).length + ' range(s) named').join(', ');
+    terms.push({
+      key: 'matrix-pending',
+      label: 'Matrix (' + depNames.join(', ').replace(/</g, '&lt;') + ') — configuring…',
+      detailHtml: 'Depends on <strong>' + depNames.join(', ').replace(/</g, '&lt;') + '</strong>, but real amounts aren\'t set yet (' + rangeCounts.replace(/</g, '&lt;') + ') — still being gathered, not guessed.',
+    });
+  }
+
+  let html = '<div style="font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-faint); margin-bottom: 6px;">Fee formula' +
+    (fees.needsConfirmation ? ' <span style="color:#b45309;">— awaiting confirmation</span>' : '') + '</div>';
+  html += '<div style="font-size: 14px;">Total = ' +
+    terms.map((t) => '<span class="formula-term" data-term-key="' + t.key + '">' + t.label.replace(/</g, '&lt;') + '</span>').join(' + ') +
+    '</div>';
+  terms.forEach((t) => {
+    if (expandedFormulaTerms.has(t.key)) {
+      html += '<div class="formula-detail-row"><strong>' + t.label.replace(/</g, '&lt;') + ':</strong> ' + t.detailHtml + '</div>';
+    }
+  });
+  bar.innerHTML = html;
+  bar.querySelectorAll('.formula-term').forEach((el) => {
+    el.onclick = () => {
+      const key = el.getAttribute('data-term-key');
+      if (expandedFormulaTerms.has(key)) expandedFormulaTerms.delete(key);
+      else expandedFormulaTerms.add(key);
+      renderFeeFormulaBar(fees);
+    };
+  });
+}
+
+// ---------------------------------------------------------------------
+// Fees' manual entry mode — the flowchart's E1 "direct entry" path,
+// matching the real design sandbox screens supplied. Available at any
+// point on the Fees step (not just after the escalation fallback), and
+// writes straight to the definition with no needsConfirmation gate —
+// unlike chat/upload extraction, a human building this directly on the
+// screen needs no separate verification step.
+// ---------------------------------------------------------------------
+
+let feesManualActive = false;
+let feesManualStep = 'mode'; // mode | components | selectField | configureRanges | matrix | addons | confirm
+let feesManualDraft = null;
+let feesManualDependentField = null; // { label, type, dropdownOptions }
+let feesManualRanges = []; // [{ label }]
+let feesManualEditingFee = null; // null | index | 'new'
+let feesManualEditingAddon = null; // null | index | 'new'
+let feesManualSampleValue = null;
+
+function enterFeesManualMode() {
+  feesManualActive = true;
+  feesManualStep = 'mode';
+  feesManualDraft = JSON.parse(JSON.stringify(currentDefinition.fees || {}));
+  if (!feesManualDraft.mode) feesManualDraft.mode = 'flat';
+  if (!feesManualDraft.feeComponents) feesManualDraft.feeComponents = [];
+  if (!feesManualDraft.additionalComponents) feesManualDraft.additionalComponents = [];
+  feesManualDependentField = null;
+  feesManualRanges = [];
+  feesManualEditingFee = null;
+  feesManualEditingAddon = null;
+  feesManualSampleValue = null;
+  // Resume mid-flow if this fee is already custom with a real dependency —
+  // land on the matrix/add-ons stage instead of forcing a restart.
+  if (feesManualDraft.mode === 'custom' && feesManualDraft.dependentFields && feesManualDraft.dependentFields.length === 1) {
+    const dep = feesManualDraft.dependentFields[0];
+    const allFields = feesManualAllFormFields();
+    feesManualDependentField = allFields.find((f) => f.label === dep.fieldLabel) || { label: dep.fieldLabel, type: 'text' };
+    feesManualRanges = dep.ranges;
+    feesManualStep = (feesManualDraft.matrix && feesManualDraft.matrix.length > 0) ? 'addons' : 'matrix';
+  }
+  renderActivePanel();
+}
+
+function exitFeesManualMode() {
+  feesManualActive = false;
+  renderActivePanel();
+}
+
+function feesManualAllFormFields() {
+  const fields = [];
+  (currentDefinition.registry.sections || []).forEach((s) => {
+    (s.fields || []).forEach((f) => fields.push(f));
+    (s.subsections || []).forEach((sub) => (sub.fields || []).forEach((f) => fields.push(f)));
+  });
+  return fields;
+}
+
+async function saveFeesManual() {
+  showLoadingBanner('Saving fee configuration…');
+  try {
+    const res = await apiFetch('/api/sessions/' + sessionId + '/fees', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(feesManualDraft),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      statusArea.textContent = 'Error ' + res.status + ': ' + (err.message || err.error);
+      return;
+    }
+    const result = await res.json();
+    currentCompleteness = result.completeness;
+    renderDefinition(result.definition);
+    feesManualActive = false;
+    renderTabs();
+    renderActivePanel();
+  } finally {
+    hideLoadingBanner();
+  }
+}
+
+function renderFeesManualModeStep() {
+  const mode = feesManualDraft.mode;
+  let html = '<h2>How should the fee be calculated?</h2>';
+  html += '<div class="oc-radio-card' + (mode === 'flat' ? ' selected' : '') + '" data-fm-mode="flat"><strong>Flat Fee</strong><div class="oc-hint">One fee for all applications regardless of details</div></div>';
+  html += '<div class="oc-radio-card' + (mode === 'custom' ? ' selected' : '') + '" data-fm-mode="custom"><strong>Custom Logic</strong><div class="oc-hint">Fee calculated based on application fields — define ranges and a fee matrix</div></div>';
+  return html;
+}
+
+function renderFeeComponentsListHtml(feeComponents) {
+  let html = '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:18px;"><h3 style="margin:0; text-transform:none; font-size:14px;">Fee Components</h3><button type="button" class="btn btn-primary" id="fmAddFeeBtn" style="padding:4px 10px;">+ Add component</button></div>';
+  html += '<p style="font-size:12.5px; color:var(--text-muted); margin:2px 0 8px;">Add components of your fee such as application fee, inspection fee etc.</p>';
+  if (feeComponents.length === 0 && feesManualEditingFee === null) {
+    html += '<p style="color:var(--text-faint); font-size:13px;"><em>No fee components added. Click "Add component" to define fees.</em></p>';
+  }
+  feeComponents.forEach((c, i) => {
+    if (feesManualEditingFee === i) { html += feesManualFeeForm(c); return; }
+    html += '<div style="display:flex; justify-content:space-between; align-items:center; border:1px solid var(--border); border-radius:6px; padding:8px 12px; margin-bottom:6px;">' +
+      '<strong>' + c.label.replace(/</g, '&lt;') + '</strong>' +
+      '<div style="display:flex; align-items:center; gap:12px;"><span>₹' + c.amount + '</span>' +
+      '<button type="button" class="oc-review-edit" data-fm-edit-fee="' + i + '">✎</button>' +
+      '<button type="button" class="oc-review-edit" data-fm-delete-fee="' + i + '">🗑</button></div></div>';
+  });
+  if (feesManualEditingFee === 'new') html += feesManualFeeForm(null);
+  return html;
+}
+
+function feesManualFeeForm(existing) {
+  const label = existing ? existing.label : '';
+  const amount = existing ? existing.amount : '';
+  return '<div style="border:1px solid #3b82f6; border-radius:8px; margin:8px 0; padding:14px; background:#f8faff;">' +
+    '<div class="oc-inline-field"><label>Label</label><input type="text" id="fmFeeLabel" value="' + label.replace(/"/g, '&quot;') + '" placeholder="e.g. Application Fee, Inspection Fee" /></div>' +
+    '<div class="oc-inline-field"><label>Amount (₹)</label><input type="number" id="fmFeeAmount" min="0" value="' + amount + '" /></div>' +
+    '<div style="display:flex; gap:8px;"><button type="button" class="btn" id="fmFeeCancelBtn">Cancel</button><button type="button" class="btn btn-primary" id="fmFeeSaveBtn">Save</button></div>' +
+    '</div>';
+}
+
+function renderAddonsListHtml(additionalComponents) {
+  let html = '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:18px;"><h3 style="margin:0; text-transform:none; font-size:14px;">Additional Fee Components</h3><button type="button" class="btn btn-primary" id="fmAddAddonBtn" style="padding:4px 10px;">+ Add</button></div>';
+  html += '<p style="font-size:12.5px; color:var(--text-muted); margin:2px 0 8px;">Add taxes, surcharges, or other charges — flat amounts or a percentage of the total fee.</p>';
+  if (additionalComponents.length === 0 && feesManualEditingAddon === null) {
+    html += '<p style="color:var(--text-faint); font-size:13px;"><em>No additional fee components added.</em></p>';
+  }
+  additionalComponents.forEach((c, i) => {
+    if (feesManualEditingAddon === i) { html += feesManualAddonForm(c); return; }
+    html += '<div style="display:flex; justify-content:space-between; align-items:center; border:1px solid var(--border); border-radius:6px; padding:8px 12px; margin-bottom:6px;">' +
+      '<strong>' + c.name.replace(/</g, '&lt;') + '</strong>' +
+      '<div style="display:flex; align-items:center; gap:12px;"><span>' + c.value + (c.type === 'percentage' ? '%' : '') + '</span>' +
+      '<button type="button" class="oc-review-edit" data-fm-edit-addon="' + i + '">✎</button>' +
+      '<button type="button" class="oc-review-edit" data-fm-delete-addon="' + i + '">🗑</button></div></div>';
+  });
+  if (feesManualEditingAddon === 'new') html += feesManualAddonForm(null);
+  return html;
+}
+
+function feesManualAddonForm(existing) {
+  const name = existing ? existing.name : '';
+  const type = existing ? existing.type : 'flat';
+  const value = existing ? existing.value : '';
+  return '<div style="border:1px solid #3b82f6; border-radius:8px; margin:8px 0; padding:14px; background:#f8faff;">' +
+    '<div class="oc-inline-field"><label>Label</label><input type="text" id="fmAddonName" value="' + name.replace(/"/g, '&quot;') + '" placeholder="e.g. GST, Surcharge" /></div>' +
+    '<div style="display:flex; gap:10px; margin:10px 0;">' +
+    '<div class="oc-radio-card' + (type === 'flat' ? ' selected' : '') + '" style="flex:1;" data-fm-addon-type="flat"><strong>Amount</strong><div class="oc-hint">Added directly to the total</div></div>' +
+    '<div class="oc-radio-card' + (type === 'percentage' ? ' selected' : '') + '" style="flex:1;" data-fm-addon-type="percentage"><strong>Percentage</strong><div class="oc-hint">A rate applied on top of the total so far</div></div>' +
+    '</div>' +
+    '<div class="oc-inline-field"><label>' + (type === 'percentage' ? 'Rate (%)' : 'Amount (₹)') + '</label><input type="number" id="fmAddonValue" min="0" value="' + value + '" /></div>' +
+    '<div style="display:flex; gap:8px;"><button type="button" class="btn" id="fmAddonCancelBtn">Cancel</button><button type="button" class="btn btn-primary" id="fmAddonSaveBtn">Save</button></div>' +
+    '</div>';
+}
+
+function renderFeesManualSelectFieldStep() {
+  const fields = feesManualAllFormFields();
+  let html = '<h2>Which field should the fee calculation depend on?</h2>';
+  html += '<p class="oc-q-desc">Select one field. The system will build a fee matrix based on your selection.</p>';
+  html += '<div class="oc-note">If a field you need is not listed below, add it first on the <strong>Application Form</strong> step, then return here.</div>';
+  if (fields.length === 0) {
+    html += '<p style="color:var(--text-faint);"><em>No Application Form fields exist yet.</em></p>';
+  }
+  fields.forEach((f, i) => {
+    const selected = feesManualDependentField && feesManualDependentField.label === f.label;
+    html += '<div class="oc-radio-card' + (selected ? ' selected' : '') + '" data-fm-select-field="' + i + '"><strong>' + f.label.replace(/</g, '&lt;') + '</strong> <span class="oc-hint" style="display:inline;">(' + f.type + ')</span></div>';
+  });
+  return html;
+}
+
+function renderFeesManualConfigureRangesStep() {
+  const f = feesManualDependentField;
+  let html = '<h2>Configure ranges for ' + f.label.replace(/</g, '&lt;') + '</h2>';
+  if (f.type === 'dropdown' && f.dropdownOptions && f.dropdownOptions.length) {
+    html += '<div class="oc-note">This dropdown\'s own real options are used as the ranges automatically — one row per option.</div>';
+    html += '<ul>' + f.dropdownOptions.map((o) => '<li>' + o.replace(/</g, '&lt;') + '</li>').join('') + '</ul>';
+    feesManualRanges = f.dropdownOptions.map((o) => ({ label: o }));
+  } else {
+    html += '<p class="oc-q-desc">This field doesn\'t have fixed options — name the real ranges/categories yourself, one per line.</p>';
+    html += '<div class="oc-inline-field"><label>Ranges (one per line)</label><textarea id="fmRangesInput" rows="5" placeholder="e.g.\n0-100 sq ft\n101-500 sq ft\n501+ sq ft">' + feesManualRanges.map((r) => r.label).join('\n') + '</textarea></div>';
+  }
+  return html;
+}
+
+function feesManualMatrixKey(combo) {
+  return combo;
+}
+
+function renderFeesManualMatrixStep() {
+  const f = feesManualDependentField;
+  const existingMatrix = (feesManualDraft.matrix || []).reduce((acc, row) => {
+    acc[row.combination[f.label]] = row.amount;
+    return acc;
+  }, {});
+  let html = '<h2>Enter the fee for each ' + f.label.replace(/</g, '&lt;') + '</h2>';
+  html += '<table class="oc-cat-table"><thead><tr><th>' + f.label.replace(/</g, '&lt;') + '</th><th>Amount (₹)</th></tr></thead><tbody>';
+  feesManualRanges.forEach((r, i) => {
+    html += '<tr><td>' + r.label.replace(/</g, '&lt;') + '</td><td><input type="number" min="0" class="fm-matrix-amount" data-fm-range-label="' + r.label.replace(/"/g, '&quot;') + '" value="' + (existingMatrix[r.label] ?? '') + '" /></td></tr>';
+  });
+  html += '</tbody></table>';
+  return html;
+}
+
+function feesManualComputeSample(fees, sampleValue) {
+  let total = 0;
+  const lines = [];
+  (fees.feeComponents || []).forEach((c) => { total += c.amount; lines.push(c.label + ': ₹' + c.amount); });
+  if (fees.mode === 'custom' && sampleValue != null && fees.matrix) {
+    const row = fees.matrix.find((r) => r.combination[fees.dependentFields[0].fieldLabel] === sampleValue);
+    if (row) { total += row.amount; lines.push(fees.dependentFields[0].fieldLabel + ' = ' + sampleValue + ': ₹' + row.amount); }
+  }
+  (fees.additionalComponents || []).forEach((c) => {
+    const add = c.type === 'percentage' ? total * (c.value / 100) : c.value;
+    lines.push(c.name + (c.type === 'percentage' ? ' (' + c.value + '%)' : '') + ': +₹' + add.toFixed(2));
+    total += add;
+  });
+  return { total, lines };
+}
+
+function renderSampleApplicantHtml(fees) {
+  const hasVariable = fees.mode === 'custom' && fees.dependentFields && fees.dependentFields.length > 0;
+  let html = '<div style="margin-top:20px; border-top:1px solid var(--border); padding-top:14px;"><h3 style="text-transform:none; font-size:14px;">Try a sample applicant</h3>';
+  if (!hasVariable) {
+    html += '<p style="color:var(--text-faint); font-size:13px;"><em>No variable components yet — nothing to sample.</em></p></div>';
+    return html;
+  }
+  const dep = fees.dependentFields[0];
+  html += '<div class="oc-inline-field"><label>' + dep.fieldLabel.replace(/</g, '&lt;') + '</label><select id="fmSampleSelect"><option value="">— choose —</option>' +
+    dep.ranges.map((r) => '<option value="' + r.label.replace(/"/g, '&quot;') + '"' + (feesManualSampleValue === r.label ? ' selected' : '') + '>' + r.label.replace(/</g, '&lt;') + '</option>').join('') +
+    '</select></div>';
+  if (feesManualSampleValue) {
+    const sample = feesManualComputeSample(fees, feesManualSampleValue);
+    html += '<div class="formula-detail-row">' + sample.lines.map((l) => '<div>' + l.replace(/</g, '&lt;') + '</div>').join('') + '<div style="margin-top:4px; font-weight:600;">Total: ₹' + sample.total.toFixed(2) + '</div></div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function renderFeesManualConfirmStep() {
+  let html = '<h2>Fee structure configured</h2>';
+  html += '<div class="oc-note" style="background:#f0fdf4; border-color:#86efac; color:#15803d;">Review below, then Save &amp; Continue.</div>';
+  html += renderFeesBody(feesManualDraft);
+  return html;
+}
+
+const FEES_MANUAL_STEP_TITLES = { mode: 'How is it calculated?', components: 'Fee Components', selectField: 'Select field', configureRanges: 'Configure ranges', matrix: 'Fee matrix', addons: 'Add-ons', confirm: 'Confirm' };
+
+function renderFeesManualScreen() {
+  const screen = document.getElementById('feesManualScreen');
+  let body;
+  if (feesManualStep === 'mode') body = renderFeesManualModeStep();
+  else if (feesManualStep === 'components') body = renderFeeComponentsListHtml(feesManualDraft.feeComponents) + renderAddonsListHtml(feesManualDraft.additionalComponents) + renderSampleApplicantHtml(feesManualDraft);
+  else if (feesManualStep === 'selectField') body = renderFeesManualSelectFieldStep();
+  else if (feesManualStep === 'configureRanges') body = renderFeesManualConfigureRangesStep();
+  else if (feesManualStep === 'matrix') body = renderFeesManualMatrixStep();
+  else if (feesManualStep === 'addons') body = renderAddonsListHtml(feesManualDraft.additionalComponents) + renderSampleApplicantHtml(feesManualDraft);
+  else body = renderFeesManualConfirmStep();
+
+  const isFirst = feesManualStep === 'mode';
+  const isLast = feesManualStep === 'confirm';
+  screen.innerHTML =
+    '<div class="oc-wizard-card">' +
+    '<div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px;"><h2 style="margin:0; font-size:18px;">Fee Configuration</h2><button type="button" class="btn btn-ghost" id="fmBackToChatBtn">← Back to chat</button></div>' +
+    '<p class="oc-q-desc" style="margin-top:2px;">Build the fee structure from individual components.</p>' +
+    body +
+    '<div class="step-nav">' +
+    '<button type="button" class="btn" id="fmPrevBtn"' + (isFirst ? ' disabled' : '') + '>&larr; Back</button>' +
+    (isLast
+      ? '<button type="button" class="btn btn-primary" id="fmSaveContinueBtn">Save &amp; Continue</button>'
+      : '<button type="button" class="btn btn-primary" id="fmNextBtn">Next &rarr;</button>') +
+    '</div></div>';
+
+  document.getElementById('fmBackToChatBtn').onclick = exitFeesManualMode;
+  document.getElementById('fmPrevBtn').onclick = feesManualGoPrev;
+  if (isLast) document.getElementById('fmSaveContinueBtn').onclick = saveFeesManual;
+  else document.getElementById('fmNextBtn').onclick = feesManualGoNext;
+
+  if (feesManualStep === 'matrix') {
+    screen.querySelectorAll('.fm-matrix-amount').forEach((el) => {
+      el.oninput = () => {
+        const label = el.getAttribute('data-fm-range-label');
+        const amount = Number(el.value) || 0;
+        feesManualDraft.mode = 'custom';
+        feesManualDraft.dependentFields = [{ fieldLabel: feesManualDependentField.label, ranges: feesManualRanges }];
+        const matrix = feesManualDraft.matrix || [];
+        const existingRow = matrix.find((r) => r.combination[feesManualDependentField.label] === label);
+        if (existingRow) existingRow.amount = amount;
+        else matrix.push({ combination: { [feesManualDependentField.label]: label }, amount });
+        feesManualDraft.matrix = matrix;
+      };
+    });
+  }
+  if (feesManualStep === 'components' || feesManualStep === 'addons') {
+    const sampleSelect = document.getElementById('fmSampleSelect');
+    if (sampleSelect) sampleSelect.onchange = () => { feesManualSampleValue = sampleSelect.value || null; renderFeesManualScreen(); };
+  }
+}
+
+function feesManualGoNext() {
+  if (feesManualStep === 'mode') {
+    feesManualStep = feesManualDraft.mode === 'flat' ? 'components' : 'selectField';
+  } else if (feesManualStep === 'components') {
+    feesManualStep = 'confirm';
+  } else if (feesManualStep === 'selectField') {
+    if (!feesManualDependentField) return;
+    feesManualStep = 'configureRanges';
+  } else if (feesManualStep === 'configureRanges') {
+    const textarea = document.getElementById('fmRangesInput');
+    if (textarea) feesManualRanges = textarea.value.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => ({ label: l }));
+    if (feesManualRanges.length === 0) return;
+    feesManualStep = 'matrix';
+  } else if (feesManualStep === 'matrix') {
+    feesManualStep = 'addons';
+  } else if (feesManualStep === 'addons') {
+    feesManualStep = 'confirm';
+  }
+  renderFeesManualScreen();
+}
+
+function feesManualGoPrev() {
+  if (feesManualStep === 'components' || feesManualStep === 'selectField') feesManualStep = 'mode';
+  else if (feesManualStep === 'configureRanges') feesManualStep = 'selectField';
+  else if (feesManualStep === 'matrix') feesManualStep = 'configureRanges';
+  else if (feesManualStep === 'addons') feesManualStep = feesManualDraft.mode === 'flat' ? 'components' : 'matrix';
+  else if (feesManualStep === 'confirm') feesManualStep = feesManualDraft.mode === 'flat' ? 'components' : 'addons';
+  renderFeesManualScreen();
+}
+
+// Delegated once — every radio-card / edit / delete control in the manual
+// fee screen reads a data-fm-* attribute, same pattern as the Overall
+// Configuration wizard.
+document.getElementById('feesManualScreen').addEventListener('click', (e) => {
+  const modeCard = e.target.closest('[data-fm-mode]');
+  if (modeCard) { feesManualDraft.mode = modeCard.getAttribute('data-fm-mode'); renderFeesManualScreen(); return; }
+
+  const fieldCard = e.target.closest('[data-fm-select-field]');
+  if (fieldCard) {
+    const f = feesManualAllFormFields()[Number(fieldCard.getAttribute('data-fm-select-field'))];
+    feesManualDependentField = f;
+    feesManualRanges = f.type === 'dropdown' ? (f.dropdownOptions || []).map((o) => ({ label: o })) : [];
+    renderFeesManualScreen();
+    return;
+  }
+
+  const addonType = e.target.closest('[data-fm-addon-type]');
+  if (addonType) {
+    const type = addonType.getAttribute('data-fm-addon-type');
+    const nameEl = document.getElementById('fmAddonName');
+    const savedName = nameEl ? nameEl.value : '';
+    const valueEl = document.getElementById('fmAddonValue');
+    const savedValue = valueEl ? valueEl.value : '';
+    if (feesManualEditingAddon === 'new') feesManualEditingAddon = 'new';
+    // Re-render the form with the new type, preserving whatever was typed.
+    const existing = typeof feesManualEditingAddon === 'number' ? feesManualDraft.additionalComponents[feesManualEditingAddon] : null;
+    const draftAddon = { name: savedName, type, value: savedValue };
+    const formHtml = feesManualAddonForm(existing ? { ...existing, ...draftAddon } : draftAddon);
+    const container = addonType.closest('div[style*="border:1px solid #3b82f6"]');
+    if (container) container.outerHTML = formHtml;
+    // Re-wire the freshly injected form's own controls.
+    wireFeesManualAddonFormEvents();
+    return;
+  }
+
+  if (e.target.id === 'fmAddFeeBtn') { feesManualEditingFee = 'new'; renderFeesManualScreen(); return; }
+  const editFee = e.target.closest('[data-fm-edit-fee]');
+  if (editFee) { feesManualEditingFee = Number(editFee.getAttribute('data-fm-edit-fee')); renderFeesManualScreen(); return; }
+  const deleteFee = e.target.closest('[data-fm-delete-fee]');
+  if (deleteFee) { feesManualDraft.feeComponents.splice(Number(deleteFee.getAttribute('data-fm-delete-fee')), 1); renderFeesManualScreen(); return; }
+  if (e.target.id === 'fmFeeCancelBtn') { feesManualEditingFee = null; renderFeesManualScreen(); return; }
+  if (e.target.id === 'fmFeeSaveBtn') {
+    const label = document.getElementById('fmFeeLabel').value.trim();
+    const amount = Number(document.getElementById('fmFeeAmount').value);
+    if (!label || !(amount >= 0)) return;
+    if (feesManualEditingFee === 'new') feesManualDraft.feeComponents.push({ label, amount });
+    else feesManualDraft.feeComponents[feesManualEditingFee] = { label, amount };
+    feesManualEditingFee = null;
+    renderFeesManualScreen();
+    return;
+  }
+
+  if (e.target.id === 'fmAddAddonBtn') { feesManualEditingAddon = 'new'; renderFeesManualScreen(); return; }
+  const editAddon = e.target.closest('[data-fm-edit-addon]');
+  if (editAddon) { feesManualEditingAddon = Number(editAddon.getAttribute('data-fm-edit-addon')); renderFeesManualScreen(); return; }
+  const deleteAddon = e.target.closest('[data-fm-delete-addon]');
+  if (deleteAddon) { feesManualDraft.additionalComponents.splice(Number(deleteAddon.getAttribute('data-fm-delete-addon')), 1); renderFeesManualScreen(); return; }
+  if (e.target.id === 'fmAddonCancelBtn') { feesManualEditingAddon = null; renderFeesManualScreen(); return; }
+  if (e.target.id === 'fmAddonSaveBtn') {
+    const name = document.getElementById('fmAddonName').value.trim();
+    const type = document.querySelector('#feesManualScreen [data-fm-addon-type].selected') ? document.querySelector('#feesManualScreen [data-fm-addon-type].selected').getAttribute('data-fm-addon-type') : 'flat';
+    const value = Number(document.getElementById('fmAddonValue').value);
+    if (!name || !(value >= 0)) return;
+    if (feesManualEditingAddon === 'new') feesManualDraft.additionalComponents.push({ name, type, value });
+    else feesManualDraft.additionalComponents[feesManualEditingAddon] = { name, type, value };
+    feesManualEditingAddon = null;
+    renderFeesManualScreen();
+  }
+});
+
+function wireFeesManualAddonFormEvents() {
+  // No-op: the form's inputs are read directly by id at save time; only
+  // the radio-card type toggle needs live re-rendering, already handled
+  // by the delegated click listener above.
+}
+
+// ---------------------------------------------------------------------
+// Fees' review screen — "Review & Continue," matching the Overall
+// Configuration review pattern, but for Fees the point isn't just
+// showing the structure back — it's proving the formula actually works
+// by walking through a real computed total for every real case (every
+// matrix row if custom logic, or the one flat/percentage breakdown),
+// reusing the same deterministic evaluator already built for the manual
+// wizard's "Try a sample applicant" preview.
+// ---------------------------------------------------------------------
+
+let feesReviewActive = false;
+
+function openFeesReviewScreen() {
+  feesReviewActive = true;
+  renderActivePanel();
+}
+function closeFeesReviewScreen() {
+  feesReviewActive = false;
+  renderActivePanel();
+}
+
+// Plain-language, not another restatement of the same numbers — composed
+// deterministically from the real structure (never an LLM call, matching
+// the flowchart's own "Evaluator is deterministic" rule; this is a
+// mechanical templating job over already-fully-known data, not something
+// that needs genuine language generation).
+function feesPlainLanguageSummary(fees) {
+  const feeComponents = fees.feeComponents || [];
+  const additionalComponents = fees.additionalComponents || [];
+  const flatTotal = feeComponents.reduce((s, c) => s + c.amount, 0);
+  const hasMatrix = fees.mode === 'custom' && fees.dependentFields && fees.dependentFields.length > 0 && fees.matrix && fees.matrix.length > 0;
+
+  if (fees.mode === 'api') {
+    return 'The fee isn\'t calculated by this configurator at all — at the moment an applicant submits, the real amount is fetched live from an external system' +
+      (fees.apiEndpoint ? ' (<code>' + fees.apiEndpoint.replace(/</g, '&lt;') + '</code>)' : ' (no endpoint set yet)') +
+      '. There\'s no way to show an applicant the amount in advance from here.';
+  }
+
+  let text;
+  if (fees.mode === 'custom' && (!fees.dependentFields || fees.dependentFields.length === 0 || !hasMatrix)) {
+    text = 'This fee is set up to depend on a field, but real amounts haven\'t been filled in for every option yet — there\'s nothing concrete to explain until that\'s complete.';
+  } else if (hasMatrix) {
+    const dep = fees.dependentFields[0];
+    const rangeList = dep.ranges.map((r) => {
+      const row = fees.matrix.find((m) => m.combination[dep.fieldLabel] === r.label);
+      return r.label.replace(/</g, '&lt;') + ' → ₹' + (row ? row.amount : '?');
+    });
+    text = 'This fee is <strong>not the same for everyone</strong> — it depends on what the applicant selects for <strong>' + dep.fieldLabel.replace(/</g, '&lt;') + '</strong>: ' + rangeList.join(', ') + '.';
+    if (feeComponents.length > 0) {
+      text += ' On top of that, every applicant also pays a fixed ' + feeComponents.map((c) => c.label.replace(/</g, '&lt;') + ' (₹' + c.amount + ')').join(' + ') + ', regardless of their selection.';
+    }
+  } else if (feeComponents.length === 0) {
+    text = 'No fee amount has been set yet — nothing to explain until at least one component exists.';
+  } else if (feeComponents.length === 1) {
+    text = 'Every applicant pays a fixed <strong>₹' + flatTotal + '</strong> (' + feeComponents[0].label.replace(/</g, '&lt;') + '). This is the same for everyone — it never changes based on anything they enter on the form.';
+  } else {
+    text = 'Every applicant pays a fixed <strong>₹' + flatTotal + '</strong> in total, made up of ' + feeComponents.length + ' parts: ' +
+      feeComponents.map((c) => c.label.replace(/</g, '&lt;') + ' (₹' + c.amount + ')').join(' + ') + '. This total is the same for everyone.';
+  }
+
+  if (additionalComponents.length > 0) {
+    text += ' ' + additionalComponents.map((c) =>
+      c.type === 'percentage'
+        ? 'A <strong>' + c.value + '%</strong> ' + c.name.replace(/</g, '&lt;') + ' surcharge is added on top of that running total.'
+        : 'A flat <strong>₹' + c.value + '</strong> ' + c.name.replace(/</g, '&lt;') + ' is added on top.'
+    ).join(' ');
+  }
+  return text;
+}
+
+function feesReviewWorkedExamplesHtml(fees) {
+  const hasMatrix = fees.mode === 'custom' && fees.dependentFields && fees.dependentFields.length > 0 && fees.matrix && fees.matrix.length > 0;
+  if (!hasMatrix) {
+    const sample = feesManualComputeSample(fees, null);
+    if (sample.lines.length === 0) return '<p style="color:var(--text-faint);"><em>Nothing to compute yet.</em></p>';
+    return '<div class="formula-detail-row">' + sample.lines.map((l) => '<div>' + l.replace(/</g, '&lt;') + '</div>').join('') + '<div style="margin-top:4px; font-weight:600;">Total: ₹' + sample.total.toFixed(2) + '</div></div>';
+  }
+  const depLabel = fees.dependentFields[0].fieldLabel;
+  return fees.matrix.map((row) => {
+    const value = row.combination[depLabel];
+    const sample = feesManualComputeSample(fees, value);
+    return '<div class="formula-detail-row" style="margin-bottom:8px;"><strong>If ' + depLabel.replace(/</g, '&lt;') + ' = ' + String(value).replace(/</g, '&lt;') + '</strong>' +
+      sample.lines.map((l) => '<div>' + l.replace(/</g, '&lt;') + '</div>').join('') +
+      '<div style="margin-top:4px; font-weight:600;">Total: ₹' + sample.total.toFixed(2) + '</div></div>';
+  }).join('');
+}
+
+function renderFeesReviewScreen() {
+  const screen = document.getElementById('feesReviewScreen');
+  const fees = currentDefinition.fees;
+  const hasMatrix = fees.mode === 'custom' && fees.dependentFields && fees.dependentFields.length > 0 && fees.matrix && fees.matrix.length > 0;
+  let html = '<div class="oc-wizard-card">';
+  html += '<h2>Your Fee Configuration is ready</h2>';
+  html += '<p class="oc-q-desc">Here\'s what this actually means for an applicant, before you continue.</p>';
+  // Leads with plain language, not the raw structure — the actual fix for
+  // "lame preview, restates the same numbers twice." The technical
+  // breakdown and per-case table are still here as supporting detail, not
+  // the first thing shown.
+  html += '<div class="oc-note" style="font-size:14px; line-height:1.6; background:#eff6ff; border-color:#bfdbfe;">' + feesPlainLanguageSummary(fees) + '</div>';
+  html += '<h3 style="margin-top:18px; text-transform:none; font-size:14px;">Technical breakdown</h3>' + renderFeesBody(fees);
+  // Only worth a separate section when there's real case-by-case
+  // variation — for a plain flat fee, the summary above already says
+  // everything there is to say; repeating it a third time added nothing.
+  if (hasMatrix) {
+    html += '<h3 style="margin-top:18px; text-transform:none; font-size:14px;">Worked examples — every real case</h3>';
+    html += feesReviewWorkedExamplesHtml(fees);
+  }
+  html += '<div class="step-nav"><button type="button" class="btn" id="feesReviewBackBtn">&larr; Back to chat</button><button type="button" class="btn btn-primary" id="feesReviewConfirmBtn">Confirm &amp; Continue &rarr;</button></div>';
+  html += '</div>';
+  screen.innerHTML = html;
+  document.getElementById('feesReviewBackBtn').onclick = closeFeesReviewScreen;
+  document.getElementById('feesReviewConfirmBtn').onclick = confirmFeesReviewAndContinue;
+}
+
+// Reuses the same direct-write endpoint the manual wizard uses — a
+// reviewed-and-confirmed fee is exactly as settled as a manually-entered
+// one, so it gets the same needsConfirmation: false treatment.
+async function confirmFeesReviewAndContinue() {
+  showLoadingBanner('Confirming fee configuration…');
+  try {
+    const res = await apiFetch('/api/sessions/' + sessionId + '/fees', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(currentDefinition.fees),
+    });
+    if (res.ok) {
+      const result = await res.json();
+      currentCompleteness = result.completeness;
+      renderDefinition(result.definition);
+    }
+  } finally {
+    hideLoadingBanner();
+  }
+  feesReviewActive = false;
+  goToStep(activeStepIndex() + 1);
+}
 
 // Mirrors fieldInput() on the Form tab — a real control per item type,
 // not a text description of one. Radio/checkbox items with real options
@@ -924,7 +1799,18 @@ function renderPaymentMethods(fees) {
     : '';
 }
 
+// The draft->confirm gate from the fees domain rule, surfaced visually —
+// mirrors the flowchart's "AI-origin cards tagged 'verify'" idea. Fees
+// itself is chat-only now (no live panel), so this mainly shows up on the
+// final Review screen, which still renders every domain the same way.
 function renderFees(fees) {
+  const banner = fees.needsConfirmation
+    ? '<div class="oc-note" style="background:#fefce8; border-color:#fde68a; color:#78350f;">⚠ Not yet confirmed — the assistant proposed this fee logic but is waiting on your confirmation before treating it as final.</div>'
+    : '';
+  return banner + renderFeesBody(fees);
+}
+
+function renderFeesBody(fees) {
   // Real third fee-calculation type ("Custom Calculator (API)") — the fee
   // comes from an external endpoint at calculation time, not from any
   // amount this system holds, so there's nothing to sum/render but the
@@ -1095,39 +1981,198 @@ const DOMAIN_RENDERERS = {
   otherInformation: (def) => renderOtherInformation(def.otherInformation),
 };
 
-// The static per-tab hint panel that used to live here (generic examples,
-// same every time) is retired — replaced by a real, context-aware
-// suggestion that reasons over the actual definition + conversation and
-// arrives as a real chat message with real clickable suggestedReplies
-// chips (see the welcome message on session start, and the "What should I
-// look at next?" button, both below).
-// Badge per tab (checkmark/partial-dot/nothing) mirroring the real
-// wizard's own sidebar (checkmark per completed step) — the concrete
-// answer to "chat has no visible progress the way a wizard does."
-const STATUS_BADGE = { complete: ' ✅', partial: ' \u{1F7E1}', missing: '' };
-
+// Step-sequenced progress dots, replacing the old free-clicking tab bar —
+// the concrete visual answer to "chat has no visible progress the way a
+// wizard does," now doubling as the actual step navigation (dots still
+// clickable to jump, same as a real wizard's sidebar lets you jump back).
 function renderTabs() {
-  domainTabs.innerHTML = '';
-  for (const tab of TABS) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
+  stepBar.innerHTML = '';
+  TABS.forEach((tab, i) => {
+    if (i > 0) {
+      const connector = document.createElement('div');
+      connector.className = 'step-connector';
+      stepBar.appendChild(connector);
+    }
     const status = currentCompleteness ? currentCompleteness[tab.key] : null;
-    btn.textContent = tab.label + (status ? STATUS_BADGE[status] : '');
-    btn.className = 'tab' + (tab.key === activeTab ? ' tab-active' : '');
-    btn.onclick = () => { activeTab = tab.key; renderTabs(); renderActivePanel(); };
-    domainTabs.appendChild(btn);
-  }
+    const dot = document.createElement('button');
+    dot.type = 'button';
+    dot.className = 'step-dot' + (tab.key === activeTab ? ' active' : '') + (status === 'complete' ? ' done' : '');
+    dot.innerHTML = '<span class="circle">' + (status === 'complete' ? '✓' : (i + 1)) + '</span><span class="label">' + tab.label + '</span>';
+    dot.onclick = () => goToStep(i);
+    stepBar.appendChild(dot);
+  });
+  updateStepNav();
+}
+
+function activeStepIndex() {
+  return TABS.findIndex((t) => t.key === activeTab);
+}
+
+function goToStep(index) {
+  if (index < 0 || index >= TABS.length) return;
+  activeTab = TABS[index].key;
+  renderTabs();
+  renderActivePanel();
+}
+
+function updateStepNav() {
+  const idx = activeStepIndex();
+  const tab = TABS[idx];
+  document.getElementById('stepPrevBtn').disabled = idx <= 0;
+  const isLast = idx === TABS.length - 1;
+  document.getElementById('stepNextBtn').textContent = isLast ? 'Review & Submit' : 'Next →';
+  document.getElementById('stepPositionLabel').textContent = 'Step ' + (idx + 1) + ' of ' + TABS.length + ' — ' + tab.label;
   const overallEl = document.getElementById('overallCompleteness');
   if (overallEl) overallEl.textContent = currentCompleteness ? '(' + currentCompleteness.overall + '% complete)' : '';
+  const assistLabel = document.getElementById('stepAssistLabel');
+  assistLabel.textContent = tab.screenOnly
+    ? 'Q&A only on this step — answers questions, never writes into it directly.'
+    : 'Describe what you need, or use the screen directly.';
 }
 
 function renderActivePanel() {
+  const screenOnlyBanner = document.getElementById('screenOnlyBanner');
+  const mainColumns = document.querySelector('.main-columns');
+  const ocScreen = document.getElementById('ocWizardScreen');
+  const ocBubble = document.getElementById('ocCornerBubble');
   if (!currentDefinition) {
     domainPanel.innerHTML = '<p><em>Start a session first.</em></p>';
+    screenOnlyBanner.innerHTML = '';
     return;
   }
+  if (activeTab !== 'fees') feesManualActive = false;
+  document.getElementById('feesManualModeBtn').style.display = activeTab === 'fees' ? '' : 'none';
+  // Fees' manual entry mode — available at any point, not only after the
+  // 3rd-round escalation fallback. Takes over the whole main area, same
+  // treatment as the Overall Configuration wizard.
+  if (activeTab === 'fees' && feesManualActive) {
+    mainColumns.style.display = 'none';
+    ocScreen.style.display = 'none';
+    ocBubble.style.display = 'none';
+    document.getElementById('ocCornerPanel').style.display = 'none';
+    document.getElementById('feesManualScreen').style.display = '';
+    document.getElementById('stepPanelTitle').style.display = 'none';
+    renderFeesManualScreen();
+    updateStepNav();
+    return;
+  }
+  document.getElementById('feesManualScreen').style.display = 'none';
+  if (activeTab !== 'fees') feesReviewActive = false;
+  // "Review & Continue" — the same walk-through-worked-examples-then-
+  // confirm pattern Overall Configuration already has, for Fees: the
+  // formula plus, critically, real computed totals for every actual case
+  // (every matrix row), not just the structure.
+  if (activeTab === 'fees' && feesReviewActive) {
+    mainColumns.style.display = 'none';
+    ocScreen.style.display = 'none';
+    ocBubble.style.display = 'none';
+    document.getElementById('ocCornerPanel').style.display = 'none';
+    document.getElementById('feesReviewScreen').style.display = '';
+    document.getElementById('stepPanelTitle').style.display = 'none';
+    renderFeesReviewScreen();
+    updateStepNav();
+    return;
+  }
+  document.getElementById('feesReviewScreen').style.display = 'none';
+  // Overall Configuration is screen-driven by design (never AI-authored) —
+  // a real full-screen wizard replaces the normal panel+chat layout here,
+  // with the chat demoted to a corner widget scoped to explaining this
+  // step from an attached reference document, not authoring it.
+  if (activeTab === 'overallConfiguration') {
+    mainColumns.style.display = 'none';
+    ocScreen.style.display = '';
+    ocBubble.style.display = '';
+    document.getElementById('stepPanelTitle').style.display = 'none';
+    screenOnlyBanner.innerHTML = '';
+    ocEnterWizard();
+    updateStepNav();
+    return;
+  }
+  mainColumns.style.display = '';
+  ocScreen.style.display = 'none';
+  ocBubble.style.display = 'none';
+  document.getElementById('ocCornerPanel').style.display = 'none';
+  document.getElementById('stepPanelTitle').style.display = '';
+
+  // Fees has no live side panel at all, ever — unlike a form or a
+  // workflow diagram, there's genuinely nothing worth rendering until the
+  // very end, and even then the review happens as a natural-language
+  // worked-example walkthrough inside the conversation itself (see the
+  // fees domain rule's confirm-before-final step), not a live table.
+  const chatOnlyDomain = CHAT_ONLY_DOMAINS.has(activeTab);
+
+  // First-visit orientation — full-screen chat with a real starting-prompt
+  // library, the concrete answer to "how does the user know what to
+  // type." Gated on whether the user has ever messaged *while on this
+  // step*, not on whether data already exists — a template or an earlier
+  // dump can pre-fill a step entirely, and the user should still see this
+  // orientation the first time they click into it, same as a blank one.
+  const stepWelcomeConfig = STEP_WELCOME[activeTab];
+  const needsWelcome = !!stepWelcomeConfig && !stepsMessaged.has(activeTab);
+  document.querySelector('.panel-card').style.display = (needsWelcome || chatOnlyDomain) ? 'none' : '';
+  document.querySelector('.chat-card').classList.toggle('chat-card-full', needsWelcome || chatOnlyDomain);
+  const welcomeEl = document.getElementById('stepWelcome');
+  const startersEl = document.getElementById('stepStarters');
+  if (needsWelcome) {
+    welcomeEl.style.display = '';
+    welcomeEl.innerHTML =
+      '<h2>' + stepWelcomeConfig.heading + '</h2>' +
+      (stepWelcomeConfig.info ? '<div class="oc-note">' + stepWelcomeConfig.info + '</div>' : '');
+    // Below the message box, not above it — a suggestion to pick right
+    // before you'd otherwise type, not a wall of text before the input.
+    // Real, grounded examples fetched per session (see
+    // fetchWelcomeStarters) — never static boilerplate.
+    startersEl.style.display = '';
+    renderStepStarters(activeTab);
+    fetchWelcomeStarters(activeTab);
+    // The chat log is one continuous, shared conversation across every
+    // step by design (nothing gets lost navigating around) — but that
+    // means the very first thing a brand-new step would otherwise show is
+    // whatever unrelated message happened to be sitting in that shared
+    // history (e.g. an Overall Configuration question, on a first visit
+    // to Application Form). Hide it for just this orientation screen; it
+    // reappears with the full history intact the moment this step has its
+    // own first message.
+    chatLog.style.display = 'none';
+    chipRow.style.display = 'none';
+    // Template suggestion / "what's next" are configurator-wide utilities,
+    // not relevant once you're focused on describing form fields.
+    document.getElementById('chatUtilityBtns').style.display = 'none';
+    renderFeeFormulaBar(activeTab === 'fees' ? currentDefinition.fees : null);
+    // chatOnlyDomain steps have no panel-card, so the *only* Prev/Next
+    // controls live here — real bug this fixes: hiding the whole
+    // panel-card also hid the step-nav buttons inside it, leaving no way
+    // to leave the Fees step at all.
+    document.getElementById('chatOnlyStepNav').style.display = chatOnlyDomain ? 'flex' : 'none';
+    screenOnlyBanner.innerHTML = '';
+    updateStepNav();
+    return;
+  }
+  chatLog.style.display = '';
+  document.getElementById('chatUtilityBtns').style.display = 'none';
+  chipRow.style.display = '';
+  welcomeEl.style.display = 'none';
+  startersEl.style.display = 'none';
+
+  if (chatOnlyDomain) {
+    renderFeeFormulaBar(activeTab === 'fees' ? currentDefinition.fees : null);
+    document.getElementById('chatOnlyStepNav').style.display = 'flex';
+    screenOnlyBanner.innerHTML = '';
+    updateStepNav();
+    return;
+  }
+  renderFeeFormulaBar(null);
+  document.getElementById('chatOnlyStepNav').style.display = 'none';
+
+  const tab = TABS.find((t) => t.key === activeTab);
   const renderer = DOMAIN_RENDERERS[activeTab];
+  screenOnlyBanner.innerHTML = tab && tab.screenOnly
+    ? '<div class="screen-only-note">Screen-only — chat here only answers questions, it never writes into this step directly (data sovereignty + cost decision). Shown below if a template or an earlier step pre-filled it.</div>'
+    : '';
   domainPanel.innerHTML = renderer(currentDefinition);
+  if (activeTab === 'registry') {
+    wireFieldSources(domainPanel);
+  }
   if (activeTab === 'workflow') {
     wireWorkflowBadges(domainPanel, currentDefinition.workflow, currentDefinition);
   }
@@ -1140,6 +2185,510 @@ function renderActivePanel() {
   if (activeTab === 'fees') {
     wireFeeExamples(domainPanel);
   }
+  updateStepNav();
+}
+
+// ---------------------------------------------------------------------
+// Overall Configuration wizard — full-screen, one question at a time,
+// matching the reference product's own screens exactly rather than the
+// 75/25 chat+panel layout every other step uses (this domain is
+// screen-driven by design, never AI-authored). Question count is dynamic:
+// 7 if Renewal is off, 8 if it's on (the Renewal-settings question only
+// exists in the second case) — matches the real product's own behavior.
+//
+// Known simplification, flagged rather than hidden: progress here is not
+// autosaved field-by-field (the real product's "Progress saved
+// automatically" note). Navigating to a different step before reaching
+// "Save & Continue" on the review screen discards in-progress answers —
+// only what's already been saved (via a prior Save & Continue, or a
+// template) persists. A real build would autosave per field.
+// ---------------------------------------------------------------------
+
+let ocAnswers = null;
+let ocStepIndex = 0;
+let ocMode = 'questions'; // 'questions' | 'review'
+let ocCatDraft = { category: '', type: '' };
+let ocCategoriesSeeded = false;
+
+const OC_DEFAULT_CATEGORIES = [
+  { path: ['Retail Shop', 'Grocery'] },
+  { path: ['Retail Shop', 'Electronics'] },
+  { path: ['Food & Beverage', 'Restaurant'] },
+  { path: ['Food & Beverage', 'Bakery'] },
+  { path: ['Healthcare', 'Pharmacy'] },
+  { path: ['Professional Services', 'Consulting'] },
+  { path: ['Manufacturing', 'Workshop'] },
+];
+const OC_LEVEL_DEFAULT_NAMES = ['Category of Business', 'Type of Business', 'Sub-type'];
+
+function ocGetField(path) {
+  return path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), ocAnswers);
+}
+function ocSetField(path, value) {
+  const keys = path.split('.');
+  let obj = ocAnswers;
+  for (let i = 0; i < keys.length - 1; i++) {
+    if (obj[keys[i]] == null) obj[keys[i]] = {};
+    obj = obj[keys[i]];
+  }
+  obj[keys[keys.length - 1]] = value;
+}
+
+function ocStepList() {
+  const steps = ['modules', 'validity'];
+  if (ocAnswers.modules && ocAnswers.modules.renewal) steps.push('renewal');
+  steps.push('categoryLevelsCount', 'categoryLevelNames', 'categories', 'applicationId');
+  return steps;
+}
+
+// Seeds from whatever the session already has (blank, or template-prefilled)
+// every time this step becomes active — see the autosave caveat above.
+function ocEnterWizard() {
+  const existing = currentDefinition.overallConfiguration || {};
+  ocAnswers = JSON.parse(JSON.stringify(existing));
+  if (!ocAnswers.modules) ocAnswers.modules = { issuance: true, renewal: false };
+  if (!ocAnswers.categoryLevels) ocAnswers.categoryLevels = { count: null, levelNames: [], categories: [] };
+  if (!ocAnswers.applicationId) ocAnswers.applicationId = {};
+  ocMode = currentCompleteness && currentCompleteness.overallConfiguration === 'complete' ? 'review' : 'questions';
+  ocStepIndex = 0;
+  ocCategoriesSeeded = false;
+  renderOcWizard();
+}
+
+const OC_LICENSE_NAME = () => (currentDefinition.metadata && currentDefinition.metadata.name) || 'licence';
+
+function ocRenderModules() {
+  const renewalOn = !!ocGetField('modules.renewal');
+  return '<h2>Which modules will your ' + OC_LICENSE_NAME() + ' service offer?</h2>' +
+    '<p class="oc-q-desc">Select all that apply.</p>' +
+    '<div class="oc-radio-card selected" style="cursor: default; background: #f0fdf4; border-color: #86efac;">' +
+      '<div style="display:flex; justify-content:space-between; align-items:center;"><div><strong>Issuance — New Applications</strong><div class="oc-hint">Citizens apply for a new ' + OC_LICENSE_NAME() + '. Always enabled.</div></div><span class="oc-badge">Always On</span></div>' +
+    '</div>' +
+    '<div class="oc-radio-card' + (renewalOn ? ' selected' : '') + '" data-oc-toggle="modules.renewal">' +
+      '<div style="display:flex; justify-content:space-between; align-items:center;"><div><strong>Renewal — Renew existing licences</strong><div class="oc-hint">Let citizens renew an active licence before or after it expires.</div></div><input type="checkbox" ' + (renewalOn ? 'checked' : '') + ' style="pointer-events:none;" /></div>' +
+    '</div>';
+}
+
+function ocRenderValidity() {
+  const mode = ocGetField('validity.mode');
+  const opts = [
+    { key: 'fixed', title: 'Fixed duration', desc: 'The licence is valid for a set number of months from the date of issue, regardless of when in the year it was issued.' },
+    { key: 'financialYear', title: 'Valid for the financial year', desc: 'The licence expires at the end of the current financial year, no matter when it was issued. All licences in a given year expire on the same date.' },
+    { key: 'never', title: 'Never expires', desc: 'The licence is issued once and remains valid indefinitely. No renewal is required.' },
+  ];
+  let html = '<h2>How long should a ' + OC_LICENSE_NAME() + ' be valid?</h2><p class="oc-q-desc">Choose a fixed duration or tie validity to the financial year.</p>';
+  opts.forEach((o) => {
+    html += '<div class="oc-radio-card' + (mode === o.key ? ' selected' : '') + '" data-oc-select="validity.mode=' + o.key + '"><strong>' + o.title + '</strong><div class="oc-hint">' + o.desc + '</div></div>';
+  });
+  if (mode === 'fixed') {
+    html += '<div class="oc-inline-field"><label>Number of months</label><input type="number" min="1" data-oc-field="validity.months" value="' + (ocGetField('validity.months') || 12) + '" /></div>';
+  }
+  if (mode === 'financialYear') {
+    html += '<div class="oc-note"><strong>Proration of fees is possible.</strong> If an applicant applies mid-year, the platform can charge a prorated fee based on the remaining months in the year.</div>';
+  }
+  return html;
+}
+
+function ocRenderRenewal() {
+  const approval = ocGetField('renewal.approval');
+  const reminder = ocGetField('renewal.reminderDaysBefore') ?? 10;
+  const grace = ocGetField('renewal.graceDaysAfter') ?? 5;
+  const opts = [
+    { key: 'autoApproveAll', title: 'Auto-approve all renewals', desc: 'Every renewal is automatically approved without any review — no workflow runs at all. Useful when renewals are routine and risk is low.' },
+    { key: 'autoApproveIfUnchanged', title: 'Auto-approve if nothing changed', desc: 'If the citizen submits with no changes to their details, the renewal is approved automatically. Any edits trigger the standard approval workflow.' },
+    { key: 'alwaysWorkflow', title: 'Always go through the approval workflow', desc: 'Every renewal — with or without changes — goes through the full review and approval process.' },
+  ];
+  let html = '<h2>How should renewal work?</h2><p class="oc-q-desc">Set reminders and deadlines for renewal.</p>' +
+    '<div class="oc-inline-field"><label>How many days before expiry should we remind the citizen to renew?</label>' +
+    '<div class="oc-stepper"><button type="button" data-oc-step="renewal.reminderDaysBefore:-1">&minus;</button><span class="value">' + reminder + '</span><button type="button" data-oc-step="renewal.reminderDaysBefore:1">+</button><span style="color:var(--text-muted); font-size:12.5px;">days before expiry</span></div></div>' +
+    '<div class="oc-inline-field"><label>How many days after expiry can they still submit a renewal? (Grace period)</label>' +
+    '<div class="oc-stepper"><button type="button" data-oc-step="renewal.graceDaysAfter:-1">&minus;</button><span class="value">' + grace + '</span><button type="button" data-oc-step="renewal.graceDaysAfter:1">+</button><span style="color:var(--text-muted); font-size:12.5px;">days after expiry</span></div></div>' +
+    '<div class="oc-note">Renewal uses the same form as the application — when a citizen renews, the form is pre-filled with their existing licence data.</div>' +
+    '<h3 style="margin-top:18px;">How should renewals be approved?</h3>';
+  opts.forEach((o) => {
+    html += '<div class="oc-radio-card' + (approval === o.key ? ' selected' : '') + '" data-oc-select="renewal.approval=' + o.key + '"><strong>' + o.title + '</strong><div class="oc-hint">' + o.desc + '</div></div>';
+  });
+  if (ocGetField('renewal.reminderDaysBefore') == null) ocSetField('renewal.reminderDaysBefore', 10);
+  if (ocGetField('renewal.graceDaysAfter') == null) ocSetField('renewal.graceDaysAfter', 5);
+  return html;
+}
+
+function ocRenderCategoryLevelsCount() {
+  const count = ocGetField('categoryLevels.count');
+  const opts = [
+    { key: 1, title: '1 level — just main categories', desc: 'The applicant sees one dropdown, e.g. "What type of business?" → Retail Shop / Restaurant / Manufacturing. They must choose one to proceed.' },
+    { key: 2, title: '2 levels — category & sub-category', desc: 'The applicant first picks a category, then a sub-category narrows it down. Both selections are required.' },
+    { key: 3, title: '3 levels — category, sub-category & type', desc: 'The applicant makes three linked selections. All three are required before the form can be submitted.' },
+  ];
+  let html = '<h2>How many levels does your licence category structure have?</h2><p class="oc-q-desc">The applicant must select a value at every level — choose based on how your department classifies business types.</p>';
+  opts.forEach((o) => {
+    html += '<div class="oc-radio-card' + (count === o.key ? ' selected' : '') + '" data-oc-select-num="categoryLevels.count=' + o.key + '"><strong>' + o.title + '</strong><div class="oc-hint">' + o.desc + '</div></div>';
+  });
+  return html;
+}
+
+function ocRenderCategoryLevelNames() {
+  const count = ocGetField('categoryLevels.count') || 1;
+  const names = ocGetField('categoryLevels.levelNames') || [];
+  // Seeded into ocAnswers immediately, not just displayed as a placeholder
+  // — otherwise a user who never touches this field would save an array
+  // with holes instead of the sensible default actually shown on screen.
+  for (let i = 0; i < count; i++) {
+    if (!names[i]) names[i] = OC_LEVEL_DEFAULT_NAMES[i] || ('Level ' + (i + 1));
+  }
+  ocSetField('categoryLevels.levelNames', names);
+  let html = '<h2>What do you call each level?</h2><p class="oc-q-desc">These labels appear on the application form, staff dashboards, and reports — use terms both citizens and staff will recognise.</p>';
+  for (let i = 0; i < count; i++) {
+    html += '<div class="oc-inline-field"><label>Level ' + (i + 1) + ' name</label><input type="text" data-oc-field="categoryLevels.levelNames.' + i + '" value="' + names[i].replace(/"/g, '&quot;') + '" /></div>';
+  }
+  return html;
+}
+
+function ocRenderCategories() {
+  const levelNames = ocGetField('categoryLevels.levelNames') || [];
+  let cats = ocGetField('categoryLevels.categories') || [];
+  // Real starter defaults on first arrival at this step only — a
+  // subsequent deliberate delete-everything must not silently come back.
+  if (cats.length === 0 && !ocCategoriesSeeded) {
+    cats = JSON.parse(JSON.stringify(OC_DEFAULT_CATEGORIES));
+    ocSetField('categoryLevels.categories', cats);
+  }
+  ocCategoriesSeeded = true;
+  let html = '<h2>What are your licence categories?</h2><p class="oc-q-desc">Add all business types that can apply for a licence.</p>';
+  html += '<div class="oc-note" style="display:flex; justify-content:space-between; align-items:center;"><span><strong>Recommended categories pre-filled</strong> — edit, add, or remove any to match your local context.</span><a href="#" id="ocResetCategoriesLink" style="color:#b91c1c;">Reset to defaults</a></div>';
+  html += '<table class="oc-cat-table"><thead><tr><th>' + (levelNames[0] || 'Category') + '</th><th>' + (levelNames[1] || 'Type') + '</th><th></th></tr></thead><tbody>';
+  cats.forEach((c, i) => {
+    html += '<tr><td>' + (c.path[0] || '').replace(/</g, '&lt;') + '</td><td>' + (c.path[1] || '').replace(/</g, '&lt;') + '</td><td><button type="button" class="oc-review-edit" data-oc-delete-cat="' + i + '">🗑</button></td></tr>';
+  });
+  html += '<tr><td><input type="text" id="ocCatCategory" placeholder="' + (levelNames[0] || 'Category') + '" value="' + ocCatDraft.category.replace(/"/g, '&quot;') + '" /></td>' +
+    '<td><input type="text" id="ocCatType" placeholder="' + (levelNames[1] || 'Type') + '" value="' + ocCatDraft.type.replace(/"/g, '&quot;') + '" /></td>' +
+    '<td><button type="button" class="btn btn-primary" id="ocAddCatBtn" style="padding: 4px 10px;">+ Add</button></td></tr>';
+  html += '</tbody></table>';
+  html += '<div style="font-size:11.5px; color:var(--text-faint); margin-top:6px;">' + cats.length + ' categories</div>';
+  return html;
+}
+
+function ocRenderApplicationId() {
+  const match = ocGetField('applicationId.licenseIdMatchesApplicationId');
+  const renewalOn = !!ocGetField('modules.renewal');
+  // Same seed-on-render rule as level names — the shown default must
+  // actually be in ocAnswers, not just displayed as a placeholder.
+  if (!ocGetField('applicationId.newFormat')) ocSetField('applicationId.newFormat', 'NLT-NNNNNN-YYYY');
+  let html = '<h2>What format should application IDs follow?</h2><p class="oc-q-desc">This is the reference number citizens will use to track their application. Use YYYY for the year and NNNNNN for a running number.</p>' +
+    '<div class="oc-inline-field"><label>New application ID format</label><input type="text" data-oc-field="applicationId.newFormat" value="' + ocGetField('applicationId.newFormat').replace(/"/g, '&quot;') + '" /></div>';
+  if (renewalOn) {
+    html += '<div class="oc-inline-field"><label>Renewal application ID format</label><input type="text" data-oc-field="applicationId.renewalFormat" value="' + (ocGetField('applicationId.renewalFormat') || '').replace(/"/g, '&quot;') + '" /></div>';
+  }
+  html += '<h3 style="margin-top:18px;">Should the Licence ID match the Application ID?</h3>' +
+    '<div style="display:flex; gap:12px;">' +
+    '<div class="oc-radio-card' + (match === true ? ' selected' : '') + '" style="flex:1;" data-oc-select-bool="applicationId.licenseIdMatchesApplicationId=true"><strong>Yes — same ID</strong><div class="oc-hint">The issued licence carries the same number as the application.</div></div>' +
+    '<div class="oc-radio-card' + (match === false ? ' selected' : '') + '" style="flex:1;" data-oc-select-bool="applicationId.licenseIdMatchesApplicationId=false"><strong>No — separate IDs</strong><div class="oc-hint">The licence gets its own ID after issuance.</div></div>' +
+    '</div>';
+  return html;
+}
+
+const OC_STEP_RENDERERS = {
+  modules: ocRenderModules,
+  validity: ocRenderValidity,
+  renewal: ocRenderRenewal,
+  categoryLevelsCount: ocRenderCategoryLevelsCount,
+  categoryLevelNames: ocRenderCategoryLevelNames,
+  categories: ocRenderCategories,
+  applicationId: ocRenderApplicationId,
+};
+
+// Only the steps with a real, meaningful "nothing chosen yet" state gate
+// Next — text fields all ship with sensible defaults already filled in.
+function ocStepValid(key) {
+  if (key === 'validity') return !!ocGetField('validity.mode');
+  if (key === 'renewal') return !!ocGetField('renewal.approval');
+  if (key === 'categoryLevelsCount') return !!ocGetField('categoryLevels.count');
+  if (key === 'applicationId') return ocGetField('applicationId.licenseIdMatchesApplicationId') != null;
+  return true;
+}
+
+function ocReviewRows() {
+  const a = ocAnswers;
+  const rows = [
+    { title: 'Modules', value: 'Issuance' + (a.modules.renewal ? ', Renewal' : ''), step: 'modules' },
+  ];
+  if (a.validity && a.validity.mode) {
+    const label = { fixed: 'Fixed duration (' + (a.validity.months || 12) + ' months)', financialYear: 'Valid for the financial year', never: 'Never expires' }[a.validity.mode];
+    rows.push({ title: 'Licence validity', value: label, step: 'validity' });
+  }
+  if (a.modules.renewal && a.renewal && a.renewal.approval) {
+    const approvalLabel = { autoApproveAll: 'Auto-approve all', autoApproveIfUnchanged: 'Auto-approve if unchanged', alwaysWorkflow: 'Always through workflow' }[a.renewal.approval];
+    rows.push({ title: 'Renewal', value: 'Reminder ' + a.renewal.reminderDaysBefore + 'd before · ' + a.renewal.graceDaysAfter + 'd grace period · ' + approvalLabel, step: 'renewal' });
+  }
+  if (a.categoryLevels && a.categoryLevels.count) {
+    rows.push({ title: 'Category levels', value: a.categoryLevels.count + ' level(s): ' + (a.categoryLevels.levelNames || []).join(' → '), step: 'categoryLevelNames' });
+    rows.push({ title: 'Categories', value: (a.categoryLevels.categories || []).length + ' categories configured', step: 'categories' });
+  }
+  if (a.applicationId && a.applicationId.newFormat) {
+    rows.push({ title: 'Application ID', value: a.applicationId.newFormat + (a.applicationId.renewalFormat ? ' · Renewal: ' + a.applicationId.renewalFormat : ''), step: 'applicationId' });
+  }
+  return rows;
+}
+
+function ocRenderReview() {
+  let html = '<h2>Your Overall Configuration is ready</h2><p class="oc-q-desc">Review and edit any section before continuing. Click the pencil icon to edit any section.</p>';
+  ocReviewRows().forEach((r) => {
+    html += '<div class="oc-review-section"><div><h4>' + r.title + '</h4><p>' + r.value.replace(/</g, '&lt;') + '</p></div><button type="button" class="oc-review-edit" data-oc-edit-step="' + r.step + '">✎</button></div>';
+  });
+  html += '<div class="step-nav"><span></span><button type="button" class="btn btn-primary" id="ocSaveContinueBtn">Save &amp; Continue &rarr;</button></div>';
+  return html;
+}
+
+// Direct write, bypassing the LLM entirely — this domain is screen-driven
+// by design (see routerSchema.ts). Advances the outer step bar to the next
+// domain on success, exactly like finishing any other step.
+async function ocSaveAndContinue() {
+  const btn = document.getElementById('ocSaveContinueBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  showLoadingBanner('Saving Overall Configuration…');
+  try {
+    const res = await apiFetch('/api/sessions/' + sessionId + '/overall-configuration', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(ocAnswers),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      statusArea.textContent = 'Error ' + res.status + ': ' + (err.message || err.error);
+      return;
+    }
+    const result = await res.json();
+    currentCompleteness = result.completeness;
+    renderDefinition(result.definition);
+    renderTabs();
+    goToStep(activeStepIndex() + 1);
+  } finally {
+    hideLoadingBanner();
+  }
+}
+
+function renderOcWizard() {
+  const screen = document.getElementById('ocWizardScreen');
+  if (ocMode === 'review') {
+    screen.innerHTML = '<div class="oc-wizard-card">' + ocRenderReview() + '</div>';
+    document.getElementById('ocSaveContinueBtn').onclick = ocSaveAndContinue;
+    screen.querySelectorAll('[data-oc-edit-step]').forEach((el) => {
+      el.onclick = () => {
+        ocMode = 'questions';
+        ocStepIndex = Math.max(0, ocStepList().indexOf(el.getAttribute('data-oc-edit-step')));
+        renderOcWizard();
+      };
+    });
+    return;
+  }
+
+  const steps = ocStepList();
+  ocStepIndex = Math.max(0, Math.min(ocStepIndex, steps.length - 1));
+  const key = steps[ocStepIndex];
+  const body = OC_STEP_RENDERERS[key]();
+  const pct = Math.round(((ocStepIndex + 1) / steps.length) * 100);
+  screen.innerHTML =
+    '<div class="oc-wizard-card">' +
+    '<div style="display:flex; justify-content:space-between; font-size:13px; color:var(--text-muted); margin-bottom:6px;"><span>Question ' + (ocStepIndex + 1) + ' of ' + steps.length + '</span><span>' + pct + '% complete</span></div>' +
+    '<div style="height:6px; background:var(--accent-soft); border-radius:3px; overflow:hidden; margin-bottom:22px;"><div style="height:100%; width:' + pct + '%; background:#3b82f6; border-radius:3px;"></div></div>' +
+    body +
+    '<div class="step-nav">' +
+    '<button type="button" class="btn" id="ocPrevBtn"' + (ocStepIndex === 0 ? ' disabled' : '') + '>&larr; Previous</button>' +
+    '<button type="button" class="btn btn-primary" id="ocNextBtn"' + (ocStepValid(key) ? '' : ' disabled') + '>Next &rarr;</button>' +
+    '</div></div>';
+
+  document.getElementById('ocPrevBtn').onclick = () => { if (ocStepIndex > 0) { ocStepIndex--; renderOcWizard(); } };
+  document.getElementById('ocNextBtn').onclick = () => {
+    if (ocStepIndex < ocStepList().length - 1) { ocStepIndex++; renderOcWizard(); }
+    else { ocMode = 'review'; renderOcWizard(); }
+  };
+
+  // Category-table step has its own add/delete/reset controls beyond the
+  // generic delegated handlers below.
+  if (key === 'categories') {
+    const addBtn = document.getElementById('ocAddCatBtn');
+    if (addBtn) addBtn.onclick = () => {
+      const category = document.getElementById('ocCatCategory').value.trim();
+      const type = document.getElementById('ocCatType').value.trim();
+      if (!category || !type) return;
+      const cats = ocGetField('categoryLevels.categories') || [];
+      cats.push({ path: [category, type] });
+      ocSetField('categoryLevels.categories', cats);
+      ocCatDraft = { category: '', type: '' };
+      renderOcWizard();
+    };
+    screen.querySelectorAll('[data-oc-delete-cat]').forEach((el) => {
+      el.onclick = () => {
+        const cats = ocGetField('categoryLevels.categories') || [];
+        cats.splice(Number(el.getAttribute('data-oc-delete-cat')), 1);
+        ocSetField('categoryLevels.categories', cats);
+        renderOcWizard();
+      };
+    });
+    const resetLink = document.getElementById('ocResetCategoriesLink');
+    if (resetLink) resetLink.onclick = (e) => {
+      e.preventDefault();
+      ocSetField('categoryLevels.categories', JSON.parse(JSON.stringify(OC_DEFAULT_CATEGORIES)));
+      renderOcWizard();
+    };
+  }
+}
+
+// Delegated once (not re-attached per render): every radio-card / stepper
+// / checkbox-style control in the wizard reads a data-oc-* attribute
+// rather than needing its own individually-wired handler.
+document.getElementById('ocWizardScreen').addEventListener('click', (e) => {
+  const toggle = e.target.closest('[data-oc-toggle]');
+  if (toggle) {
+    const path = toggle.getAttribute('data-oc-toggle');
+    ocSetField(path, !ocGetField(path));
+    renderOcWizard();
+    return;
+  }
+  const select = e.target.closest('[data-oc-select]');
+  if (select) {
+    const [path, value] = select.getAttribute('data-oc-select').split('=');
+    ocSetField(path, value);
+    renderOcWizard();
+    return;
+  }
+  const selectNum = e.target.closest('[data-oc-select-num]');
+  if (selectNum) {
+    const [path, value] = selectNum.getAttribute('data-oc-select-num').split('=');
+    ocSetField(path, Number(value));
+    renderOcWizard();
+    return;
+  }
+  const selectBool = e.target.closest('[data-oc-select-bool]');
+  if (selectBool) {
+    const [path, value] = selectBool.getAttribute('data-oc-select-bool').split('=');
+    ocSetField(path, value === 'true');
+    renderOcWizard();
+    return;
+  }
+  const stepper = e.target.closest('[data-oc-step]');
+  if (stepper) {
+    const [path, delta] = stepper.getAttribute('data-oc-step').split(':');
+    ocSetField(path, Math.max(0, (ocGetField(path) || 0) + Number(delta)));
+    renderOcWizard();
+  }
+});
+
+// Text/number fields update state silently on every keystroke (no
+// re-render — would steal focus) and only re-validate the Next button.
+document.getElementById('ocWizardScreen').addEventListener('input', (e) => {
+  const field = e.target.getAttribute('data-oc-field');
+  if (!field) return;
+  const value = e.target.type === 'number' ? Number(e.target.value) : e.target.value;
+  const parts = field.split('.');
+  const lastPart = parts[parts.length - 1];
+  // categoryLevels.levelNames.N — write into the array at index N, not a
+  // literal object key named "N".
+  if (parts[0] === 'categoryLevels' && parts[1] === 'levelNames') {
+    const names = ocGetField('categoryLevels.levelNames') || [];
+    names[Number(lastPart)] = value;
+    ocSetField('categoryLevels.levelNames', names);
+  } else if (field.startsWith('ocCat')) {
+    // handled by the plain input listeners below instead
+  } else {
+    ocSetField(field, value);
+  }
+});
+document.getElementById('ocWizardScreen').addEventListener('input', (e) => {
+  if (e.target.id === 'ocCatCategory') ocCatDraft.category = e.target.value;
+  if (e.target.id === 'ocCatType') ocCatDraft.type = e.target.value;
+});
+
+document.getElementById('feesManualModeBtn').onclick = enterFeesManualMode;
+document.getElementById('chatOnlyPrevBtn').onclick = () => goToStep(activeStepIndex() - 1);
+document.getElementById('chatOnlyReviewBtn').onclick = openFeesReviewScreen;
+
+// --- Corner chat widget: document-grounded Q&A only, never authors the
+// wizard's own answers. ---
+document.getElementById('ocCornerBubble').onclick = () => {
+  const panel = document.getElementById('ocCornerPanel');
+  panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+};
+document.getElementById('ocCornerCloseBtn').onclick = () => {
+  document.getElementById('ocCornerPanel').style.display = 'none';
+};
+
+function ocAppendCornerMessage(role, text) {
+  const log = document.getElementById('ocCornerLog');
+  if (log.querySelector('em')) log.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'msg msg-' + (role === 'administrator' ? 'administrator' : 'ai');
+  wrap.style.marginBottom = '8px';
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+  bubble.textContent = text;
+  wrap.appendChild(bubble);
+  log.appendChild(wrap);
+  log.scrollTop = log.scrollHeight;
+}
+
+// Not a separate, disconnected chatbot — this pushes into the exact same
+// session.messages history the main chat uses, saved server-side and
+// visible in the main chat log on every other step too. The small corner
+// log is just this widget's own convenient view onto that same
+// conversation while it's open, not a second data store.
+document.getElementById('ocCornerAskBtn').onclick = async () => {
+  const question = document.getElementById('ocCornerQuestion').value.trim();
+  if (!question) return;
+  ocAppendCornerMessage('administrator', question);
+  appendMessage('administrator', question);
+  document.getElementById('ocCornerQuestion').value = '';
+  const askBtn = document.getElementById('ocCornerAskBtn');
+  askBtn.disabled = true;
+  showLoadingBanner('Checking this step’s reference material…');
+  try {
+    const res = await apiFetch('/api/sessions/' + sessionId + '/ask-about-step', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ domain: activeTab, question }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      ocAppendCornerMessage('ai', 'Error: ' + (err.message || err.error));
+      return;
+    }
+    const { message } = await res.json();
+    ocAppendCornerMessage('ai', message.text);
+    appendMessage('ai', message.text);
+  } finally {
+    askBtn.disabled = false;
+    hideLoadingBanner();
+  }
+};
+
+// Last step: walk through every screen with chat still live beside it, then
+// submit. Reuses the same DOMAIN_RENDERERS every step already has — no
+// separate review-rendering logic to keep in sync.
+function openReviewOverlay() {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed; inset:0; background:rgba(15,23,42,0.6); display:flex; align-items:center; justify-content:center; z-index:1000;';
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+  const box = document.createElement('div');
+  box.style.cssText = 'background:#fff; border-radius:8px; padding:24px; width:90vw; height:88vh; overflow:auto; position:relative;';
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.textContent = '✕ Close';
+  closeBtn.className = 'btn btn-ghost';
+  closeBtn.style.cssText = 'position:absolute; top:16px; right:16px;';
+  closeBtn.onclick = () => overlay.remove();
+  let html = '<h2 style="margin-top:0;">Review — walk through before submitting</h2>';
+  html += '<p style="font-size:12px; color:var(--text-muted);">Chat is still available on the main screen while you review — ask what any screen means for the citizen before submitting.</p>';
+  TABS.forEach((t) => {
+    html += '<div style="margin:18px 0; border-top:1px solid var(--border); padding-top:14px;"><h3 style="text-transform:none; font-size:14px; color:var(--text); font-weight:600;">' + t.label + '</h3>' + DOMAIN_RENDERERS[t.key](currentDefinition) + '</div>';
+  });
+  html += '<button type="button" class="btn btn-primary" id="finalSubmitBtn" style="margin-top:12px;">Submit configuration</button>';
+  box.innerHTML = html;
+  box.appendChild(closeBtn);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  document.getElementById('finalSubmitBtn').onclick = () => {
+    alert('Prototype: this is where the definition would compile and submit to DIGIT. Not wired to a real backend endpoint yet.');
+  };
 }
 
 function renderDefinition(definition) {
@@ -1150,11 +2699,19 @@ function renderDefinition(definition) {
   renderActivePanel();
 }
 
+// No list endpoint yet (one seed template only, per Sprint 2 scope, see
+// templates/match.ts's own comment: multi-template ranking is real,
+// unbuilt work) — one honest card for the one real template, rather than
+// padding the "Know exactly what you need?" picker out with templates that
+// don't exist in the library.
 async function loadTemplateOptions() {
-  // No list endpoint yet (one seed template only, per Sprint 2 scope) — hardcode
-  // the one real id rather than build a route for a single static option.
-  templateSelect.innerHTML = '<option value="">— choose —</option>' +
-    '<option value="business-license-starter">Business License</option>';
+  const templatesEl = document.getElementById('templateCards');
+  templatesEl.innerHTML = '';
+  const card = document.createElement('div');
+  card.className = 'template-card';
+  card.innerHTML = '<strong>Business License</strong><span>Every later step starts pre-filled from this template.</span>';
+  card.onclick = () => newSession('business-license-starter');
+  templatesEl.appendChild(card);
 }
 
 function showStartScreen() {
@@ -1164,6 +2721,7 @@ function showStartScreen() {
   currentDefinition = null;
   currentCompleteness = null;
   document.getElementById('dumpDescription').value = '';
+  document.getElementById('dumpFiles').value = '';
   document.getElementById('suggestionResult').innerHTML = '';
   document.getElementById('startStatusArea').textContent = '';
 }
@@ -1181,6 +2739,8 @@ const SESSION_STORAGE_KEY = 'lnp-configurator-session-id';
 function hydrateSession(session) {
   sessionId = session.sessionId;
   sessionLabel.textContent = ' session: ' + sessionId;
+  stepsMessaged = new Set();
+  welcomeStartersCache = {};
   chatLog.innerHTML = '';
   chipRow.innerHTML = '';
   statusArea.textContent = '';
@@ -1200,11 +2760,17 @@ function hydrateSession(session) {
 async function newSession(templateId) {
   document.getElementById('startStatusArea').style.color = '#333';
   document.getElementById('startStatusArea').textContent = 'Creating session...';
-  const res = await apiFetch('/api/sessions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(templateId ? { templateId } : {}),
-  });
+  showLoadingBanner('Creating session…');
+  let res;
+  try {
+    res = await apiFetch('/api/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(templateId ? { templateId } : {}),
+    });
+  } finally {
+    hideLoadingBanner();
+  }
   hydrateSession(await res.json());
 }
 
@@ -1230,7 +2796,13 @@ async function askWhatsNext() {
   }
   statusArea.style.color = '#333';
   statusArea.textContent = 'Thinking...';
-  const res = await apiFetch('/api/sessions/' + sessionId + '/next-steps', { method: 'POST' });
+  showLoadingBanner('Thinking…');
+  let res;
+  try {
+    res = await apiFetch('/api/sessions/' + sessionId + '/next-steps', { method: 'POST' });
+  } finally {
+    hideLoadingBanner();
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     statusArea.textContent = 'Error ' + res.status + ': ' + (err.message || err.error);
@@ -1242,41 +2814,81 @@ async function askWhatsNext() {
   renderChips(message.suggestedReplies);
 }
 
+// Real threshold, no usage data behind it yet — an assumption to validate
+// (log every suggestion shown + the user's yes/no, then retune), not a
+// measured cutoff. See the plan doc's "Open parameters" section.
+const TEMPLATE_MATCH_THRESHOLD = 70;
+
 // Renders the real gap-analysis result (matchPercent + reply + per-domain
-// notes) on the start screen, with a button to actually commit to a session
-// seeded from the suggested template.
-function renderSuggestion(suggestion) {
+// notes) on the start screen. Step 2 of the flow: above the threshold, ask
+// before committing; at/below it, or with no match at all, just continue
+// straight into the dump-seeded session — no forced choice on a weak match.
+function renderSuggestion(suggestion, description, files) {
   const el = document.getElementById('suggestionResult');
   if (!suggestion) {
-    el.innerHTML = '<p><em>No suggestion available.</em></p>';
+    el.innerHTML = '<p><em>No close template match — continuing from your description.</em></p>';
+    startFromDump(description, files);
     return;
   }
-  let html = '<p><strong>' + suggestion.name + '</strong> — ' + suggestion.matchPercent + '% match</p>';
-  html += '<p>' + suggestion.reply.replace(/</g, '&lt;') + '</p>';
+  const meetsThreshold = suggestion.matchPercent >= TEMPLATE_MATCH_THRESHOLD;
+  let html = meetsThreshold
+    ? '<p>This looks like the <strong>' + suggestion.name + '</strong> template (' + suggestion.matchPercent + '% match) — use it?</p>'
+    : '<p><strong>' + suggestion.name + '</strong> is the closest match, but only ' + suggestion.matchPercent + '% — below the ' + TEMPLATE_MATCH_THRESHOLD + '% bar to suggest it automatically.</p>';
+  html += '<p style="color:#666;">' + suggestion.reply.replace(/</g, '&lt;') + '</p>';
   if (suggestion.domainNotes && suggestion.domainNotes.length > 0) {
     html += '<ul>' + suggestion.domainNotes.map((n) =>
       '<li><strong>' + n.domain + '</strong> [' + n.status + ']: ' + n.note.replace(/</g, '&lt;') + '</li>'
     ).join('') + '</ul>';
   }
-  html += '<button type="button" class="btn btn-primary" id="startWithSuggestedBtn">Start with this template</button>';
+  html += '<div style="display:flex; gap:8px; margin-top:8px;">' +
+    '<button type="button" class="btn btn-primary" id="startWithSuggestedBtn">Yes, use this template</button>' +
+    '<button type="button" class="btn" id="startFromDescriptionBtn">No, use my description</button>' +
+    '</div>';
   el.innerHTML = html;
   document.getElementById('startWithSuggestedBtn').onclick = () => newSession(suggestion.id);
+  document.getElementById('startFromDescriptionBtn').onclick = () => startFromDump(description, files);
+}
+
+// The "no template" path: create a blank session, then immediately feed
+// the dump description + uploaded files through as the first real turn so
+// the session actually starts pre-filled from the dump, not empty.
+async function startFromDump(description, files) {
+  await newSession(undefined);
+  if (description || (files && files.length)) {
+    await sendTurn(description, files);
+  }
 }
 
 async function suggestBeforeSession() {
   const description = document.getElementById('dumpDescription').value.trim();
+  const files = Array.from(document.getElementById('dumpFiles').files);
   const startStatusArea = document.getElementById('startStatusArea');
-  if (!description) {
-    startStatusArea.textContent = 'Describe what you need first.';
+  if (!description && files.length === 0) {
+    startStatusArea.textContent = 'Describe what you need, or attach a document, first.';
     return;
   }
   startStatusArea.textContent = '';
+  // Template matching is text-only today (templates/match.ts) — with
+  // nothing to text-compare (docs only, no description), skip the match
+  // step entirely and go straight in; the real extraction pipeline (not
+  // this comparison call) is what actually reads the attached files.
+  if (!description) {
+    document.getElementById('suggestionResult').innerHTML = '';
+    await startFromDump(description, files);
+    return;
+  }
   document.getElementById('suggestionResult').innerHTML = '<p><em>Thinking...</em></p>';
-  const res = await apiFetch('/api/sessions/suggest-template', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ description }),
-  });
+  showLoadingBanner('Comparing against templates…');
+  let res;
+  try {
+    res = await apiFetch('/api/sessions/suggest-template', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description }),
+    });
+  } finally {
+    hideLoadingBanner();
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     startStatusArea.textContent = 'Error ' + res.status + ': ' + (err.message || err.error);
@@ -1284,7 +2896,36 @@ async function suggestBeforeSession() {
     return;
   }
   const { suggestion } = await res.json();
-  renderSuggestion(suggestion);
+  renderSuggestion(suggestion, description, files);
+}
+
+// A multi-file dump can take a real, noticeable while (router + several
+// concurrent domain specialists, each reading real document content) — with
+// no indicator, an in-flight request and a failed one looked identical, and
+// the wizard's step navigation stays clickable during the wait, so browsing
+// ahead mid-request showed a stale, pre-response view that read as "nothing
+// happened." This bubble is the fix: visible in the chat column regardless
+// of which step you're on, removed the moment a real response (or error)
+// arrives.
+function appendThinking() {
+  const wrap = document.createElement('div');
+  wrap.className = 'msg msg-ai';
+  wrap.id = 'thinkingIndicator';
+  const roleLabel = document.createElement('div');
+  roleLabel.className = 'msg-role';
+  roleLabel.textContent = 'Assistant';
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+  bubble.innerHTML = '<em>Thinking' + (sendBtn && sendBtn.dataset.fileCount > 1 ? ' — reading ' + sendBtn.dataset.fileCount + ' documents, this can take a bit' : '') + '…</em>';
+  wrap.appendChild(roleLabel);
+  wrap.appendChild(bubble);
+  chatLog.appendChild(wrap);
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+function removeThinking() {
+  const el = document.getElementById('thinkingIndicator');
+  if (el) el.remove();
 }
 
 async function sendTurn(message, files) {
@@ -1293,14 +2934,30 @@ async function sendTurn(message, files) {
     return;
   }
   statusArea.textContent = '';
+  stepsMessaged.add(activeTab);
   appendMessage('administrator', message || '(attached ' + files.length + ' file(s))');
   chipRow.innerHTML = '';
+  sendBtn.disabled = true;
+  sendBtn.dataset.fileCount = files.length;
+  appendThinking();
+  showLoadingBanner(files.length > 1 ? 'Reading ' + files.length + ' documents — this can take a bit…' : 'Thinking…');
 
   const formData = new FormData();
   formData.append('message', message);
+  // Which step's screen the user is actually looking at — keeps the
+  // proactive nudge scoped to this step instead of jumping to a globally
+  // "next" domain that has nothing to do with what's on screen.
+  formData.append('activeStep', activeTab);
   for (const file of files) formData.append('files', file);
 
-  const res = await apiFetch('/api/sessions/' + sessionId + '/turns', { method: 'POST', body: formData });
+  let res;
+  try {
+    res = await apiFetch('/api/sessions/' + sessionId + '/turns', { method: 'POST', body: formData });
+  } finally {
+    removeThinking();
+    sendBtn.disabled = false;
+    hideLoadingBanner();
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     statusArea.textContent = 'Error ' + res.status + ': ' + (err.message || err.error);
@@ -1325,7 +2982,13 @@ async function suggestTemplateInSession() {
   }
   statusArea.style.color = '#333';
   statusArea.textContent = 'Thinking...';
-  const res = await apiFetch('/api/sessions/' + sessionId + '/suggest-template', { method: 'POST' });
+  showLoadingBanner('Comparing against templates…');
+  let res;
+  try {
+    res = await apiFetch('/api/sessions/' + sessionId + '/suggest-template', { method: 'POST' });
+  } finally {
+    hideLoadingBanner();
+  }
   const { suggestion } = await res.json();
   statusArea.textContent = suggestion
     ? suggestion.name + ' — ' + suggestion.matchPercent + '% match. ' + suggestion.reply
@@ -1343,16 +3006,25 @@ document.getElementById('forgetSessionBtn').onclick = () => {
   localStorage.removeItem(SESSION_STORAGE_KEY);
   showStartScreen();
 };
-document.getElementById('startFromTemplateBtn').onclick = () => {
-  if (!templateSelect.value) {
-    document.getElementById('startStatusArea').textContent = 'Pick a template first.';
-    return;
-  }
-  newSession(templateSelect.value);
-};
 document.getElementById('suggestBeforeSessionBtn').onclick = suggestBeforeSession;
+document.getElementById('stepPrevBtn').onclick = () => goToStep(activeStepIndex() - 1);
+document.getElementById('stepNextBtn').onclick = () => {
+  const idx = activeStepIndex();
+  if (idx === TABS.length - 1) openReviewOverlay();
+  else goToStep(idx + 1);
+};
 document.getElementById('suggestTemplateBtn').onclick = suggestTemplateInSession;
 document.getElementById('whatsNextBtn').onclick = askWhatsNext;
+// Delegated, not wired per-button — the starter prompts are regenerated
+// fresh per step/render now, not static markup. Populates rather than
+// auto-sends: a starting point to edit, not a guess fired on the user's
+// behalf.
+document.getElementById('stepStarters').addEventListener('click', (e) => {
+  const btn = e.target.closest('.starter-prompt');
+  if (!btn) return;
+  document.getElementById('messageInput').value = btn.getAttribute('data-starter');
+  document.getElementById('messageInput').focus();
+});
 document.getElementById('turnForm').onsubmit = (e) => {
   e.preventDefault();
   const message = document.getElementById('messageInput').value.trim();

@@ -25,11 +25,15 @@ export const LicenceValiditySchema = z.object({
   months: z.number().nonnegative().nullable(),
 })
 
+// renewalFormSameAsApplication is deliberately NOT here — real evidence
+// (the live product screen) shows this is not actually a configurable
+// choice ("a separate renewal form is not yet available"), so the model
+// is never asked for it; toCanonical.ts hardcodes it true once renewal
+// rules exist at all, same reasoning as issuance never being asked.
 export const RenewalRulesSchema = z.object({
   reminderDaysBefore: z.number().nonnegative().nullable(),
   graceDaysAfter: z.number().nonnegative().nullable(),
   approval: z.enum(['autoApproveAll', 'autoApproveIfUnchanged', 'alwaysWorkflow']).nullable(),
-  renewalFormSameAsApplication: z.boolean().nullable(),
 })
 
 // Real range is 1-5 (real Business License template spec), corrected from
@@ -97,6 +101,13 @@ export const RegistryFieldSchema = z.object({
   dropdownOptions: z.array(z.string()).nullable(),
   optionsSource: z.string().nullable(),
   pullFromDatabase: z.boolean().nullable(),
+  // Real attribution, not decoration — "where did this come from" (an
+  // uploaded document, named, or the chat message itself) is exactly what
+  // was previously a canonical-type field (RegistryField.source) with
+  // nothing ever populating it. Echoed back unchanged for an untouched
+  // field, set fresh for one added/changed this turn — see the domain
+  // rule below for the exact instruction.
+  source: z.string().nullable(),
 })
 
 export const RegistrySubsectionSchema = z.object({
@@ -226,6 +237,9 @@ export const FeeConfigSchema = z.object({
   matrix: z.array(FeeMatrixRowSchema).nullable(),
   apiEndpoint: z.string().nullable(),
   paymentMethods: z.array(z.string()),
+  // Draft→confirm gate — see the domain rule for exactly when to set this
+  // true vs. clear it.
+  needsConfirmation: z.boolean(),
 })
 
 // Same partial-knowledge reasoning as FeeComponent — event/channel/recipient

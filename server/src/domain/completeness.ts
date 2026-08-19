@@ -71,8 +71,17 @@ function notificationsStatus(definition: ApplicationDefinition): SectionStatus {
   return definition.notifications.rules.length > 0 ? 'complete' : 'missing'
 }
 
-// checklists tracked but never required — excluded here, matching the plan.
-const REQUIRED_FOR_OVERALL = ['metadata', 'overallConfiguration', 'registry', 'workflow', 'roles', 'fees', 'notifications'] as const
+// Scoped-AI-assist decision: chat only ever authors metadata/registry/fees/
+// checklists now (see routerSchema.ts's DEEP_EXTRACTION_DOMAINS) —
+// overallConfiguration/workflow/roles/notifications are screen-only, so it
+// would be misleading to count them toward a percentage this chat interface
+// can actually move. Their status functions still run below (a template can
+// pre-fill them, worth showing), just excluded from the "how much of what
+// chat is responsible for is done" number. checklists is excluded here for
+// an independent, still-true reason regardless of its AI-scope status: real
+// tenants routinely and legitimately skip it entirely, so an empty
+// checklist should never read as "incomplete" the way an empty Fees would.
+const REQUIRED_FOR_OVERALL = ['metadata', 'registry', 'fees'] as const
 
 export function computeCompleteness(definition: ApplicationDefinition): CompletenessSnapshot {
   const snapshot = {
